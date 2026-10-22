@@ -633,9 +633,11 @@ function viewMais() {
   S.plan.checklist.forEach((c) => (blocks[c.block] = blocks[c.block] || []).push(c));
   const nNotes = Object.keys(S.notes).length;
   shell('Mais', `
-    <div class="card"><h2>Exportar para Excel</h2>
+    <div class="card"><h2>Exportar</h2>
       <p class="muted small" style="margin-top:0">Gera uma planilha com todas as empresas (planejadas + adicionadas), dados de contato, observações e status. ${nNotes} fichas com anotações neste aparelho.</p>
-      <button class="btn block" onclick="exportXlsx()">Exportar Excel (.xlsx)</button></div>
+      <button class="btn block" onclick="exportZip()">Exportar Excel + fotos (.zip)</button>
+      <p class="muted small">O ZIP traz o Excel e uma pasta <b>fotos/</b> com uma subpasta por empresa (ex.: Haohui_2.1E11). No app Arquivos, toque no ZIP para descompactar.</p>
+      <button class="btn sec block" onclick="exportXlsx()">Só o Excel (.xlsx)</button></div>
     <div class="card"><h2>Juntar anotações com o outro celular</h2>
       <p class="muted small" style="margin-top:0">Cada celular guarda suas próprias anotações. Para juntar: em um celular toque em “Enviar minhas anotações” e mande o arquivo pelo WhatsApp/AirDrop; no outro, toque em “Importar” e escolha o arquivo. Nada se perde: textos diferentes são combinados.</p>
       <div class="btns"><button class="btn" onclick="exportSync()">Enviar minhas anotações</button>
@@ -650,13 +652,13 @@ function viewMais() {
       ${S.plan.demands.map((d) => `<div style="margin:12px 0"><b>${esc(d.name)}</b> <span class="muted small">${esc(d.substrate)}</span><div class="small">${esc(d.goal)}</div><div class="muted small">Matérias-primas: ${esc(d.materials)}</div></div>`).join('')}</details>
     <div class="card"><h2>Este aparelho</h2>
       <label class="f">Seu nome</label><input value="${esc(S.user)}" onchange="S.user=this.value.trim()||S.user;save(USER_KEY,S.user);toast('Nome atualizado')">
-      <p class="muted small">Dica: use sempre pelo ícone na tela de início — o Safari e o app instalado guardam dados separados. Faça “Exportar Excel” ao fim de cada dia como backup.</p>
+      <p class="muted small">Dica: use sempre pelo ícone na tela de início — o Safari e o app instalado guardam dados separados. Faça “Exportar Excel + fotos” ao fim de cada dia como backup.</p>
       <button class="btn warn block" onclick="wipe()">Apagar todos os dados deste aparelho</button></div>
   `);
 }
 window.save = save; window.toast = toast; window.S = S;
 window.wipe = async () => {
-  if (!confirm('Apagar TODAS as anotações e fotos deste celular? Exporte o Excel antes.')) return;
+  if (!confirm('Apagar TODAS as anotações e fotos deste celular? Exporte o ZIP antes.')) return;
   if (prompt('Digite APAGAR para confirmar') !== 'APAGAR') return;
   [NOTES_KEY, ADDED_KEY, HERE_KEY, 'cc_ui'].forEach((k) => localStorage.removeItem(k));
   const db = await idb(); db.transaction('photos', 'readwrite').objectStore('photos').clear();
@@ -671,10 +673,56 @@ async function shareFile(blob, name, type) {
   }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
 }
-const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})/, '$1-');
+const stamp = () => { const d = new Date(), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`; };
+// Minimal ZIP writer (stored, no compression — JPEGs don't shrink anyway). UTF-8 names via flag bit 11.
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8) { let c = 0xffffffff; for (let i = 0; i < u8.length; i++) c = CRC_T[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; }
+function makeZip(files) {
+  const d = new Date(), time = (d.getHours() << 11) | (d.getMinutes() << 5) | (d.getSeconds() >> 1);
+  const date = ((d.getFullYear() - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
+  const parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const name = new TextEncoder().encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const h = new DataView(new ArrayBuffer(30));
+    [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, time, 2], [12, date, 2], [14, crc, 4], [18, sz, 4], [22, sz, 4], [26, name.length, 2], [28, 0, 2]]
+      .forEach(([o, v, n]) => n === 4 ? h.setUint32(o, v, true) : h.setUint16(o, v, true));
+    const c = new DataView(new ArrayBuffer(46));
+    [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, time, 2], [14, date, 2], [16, crc, 4], [20, sz, 4], [24, sz, 4], [28, name.length, 2],
+      [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, off, 4]].forEach(([o, v, n]) => n === 4 ? c.setUint32(o, v, true) : c.setUint16(o, v, true));
+    parts.push(h, name, f.data); central.push(c, name);
+    off += 30 + name.length + sz;
+  }
+  const cdSize = central.reduce((s, x) => s + x.byteLength, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  [[0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2], [8, files.length, 2], [10, files.length, 2], [12, cdSize, 4], [16, off, 4], [20, 0, 2]]
+    .forEach(([o, v, n]) => n === 4 ? e.setUint32(o, v, true) : e.setUint16(o, v, true));
+  return new Blob([...parts, ...central, e], { type: 'application/zip' });
+}
+const fileSafe = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9.\-]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'sem_nome';
+const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+window.exportZip = async () => {
+  if (!window.XLSX) return toast('Biblioteca do Excel ainda carregando…');
+  toast('Preparando arquivo…');
+  const photos = (await allPhotos()).sort((a, b) => a.ts - b.ts);
+  const folders = {}, files = [], count = {};
+  for (const p of photos) {
+    let folder;
+    if (p.eid.startsWith('hall-')) folder = 'fotos/_plantas_dos_halls';
+    else { const e = entity(p.eid); folder = 'fotos/' + fileSafe(e ? `${e.title}_${parseStand(e.stand) ? e.stand : 'sem_stand'}` : p.eid); folders[p.eid] = folder; }
+    count[folder] = (count[folder] || 0) + 1;
+    const base = p.eid.startsWith('hall-') ? 'hall_' + p.eid.slice(5) + '_' : '';
+    files.push({ name: `${folder}/${base}${String(count[folder]).padStart(2, '0')}.jpg`, data: new Uint8Array(await p.blob.arrayBuffer()) });
+  }
+  const xlsxName = `CHINACOAT_anotacoes_${fileSafe(S.user)}_${stamp()}.xlsx`;
+  files.unshift({ name: xlsxName, data: new Uint8Array(buildWorkbook(photos, folders)) });
+  await shareFile(makeZip(files), `CHINACOAT_${fileSafe(S.user)}_${stamp()}.zip`, 'application/zip');
+};
 window.exportXlsx = async () => {
   if (!window.XLSX) return toast('Biblioteca do Excel ainda carregando…');
-  const photos = await allPhotos();
+  const out = buildWorkbook(await allPhotos(), null);
+  await shareFile(new Blob([out], { type: XLSX_TYPE }), `CHINACOAT_anotacoes_${fileSafe(S.user)}_${stamp()}.xlsx`, XLSX_TYPE);
+};
+function buildWorkbook(photos, folders) {
   const pc = {}; photos.forEach((p) => (pc[p.eid] = (pc[p.eid] || 0) + 1));
   const ids = [...S.plan.visits.filter((v) => v.kind !== 'tarefa').map((v) => v.id), ...S.added, ...Object.keys(S.notes).filter((k) => k.startsWith('c') && !S.added.includes(k))];
   const stLabel = (s) => (STATUSES.find((x) => x[0] === (s || '')) || STATUSES[0])[1];
@@ -687,7 +735,8 @@ window.exportXlsx = async () => {
       'Matéria-prima alvo': e.material || '', 'Pergunta-chave': e.question || '', 'Status': stLabel(n.status),
       'Visitado em': n.visitedAt ? new Date(n.visitedAt).toLocaleString('pt-BR') : '', 'Atendido por': n.contact || '', 'Cargo': n.role || '',
       'E-mail': n.email || '', 'WhatsApp': n.whatsapp || '', 'WeChat': n.wechat || '', 'Observações / pontos tratados': n.obs || '',
-      'Amostras / documentos': n.samples || '', 'Próximos passos': n.next || '', 'Interesse (1-5)': n.score || '', 'Fotos no celular': pc[eid] || '',
+      'Amostras / documentos': n.samples || '', 'Próximos passos': n.next || '', 'Interesse (1-5)': n.score || '', 'Fotos': pc[eid] || '',
+      ...(folders ? { 'Pasta das fotos (no ZIP)': folders[eid] || '' } : {}),
       'Anotado por': n.by || '', 'Última edição': n.updatedAt ? new Date(n.updatedAt).toLocaleString('pt-BR') : ''
     };
   }).filter(Boolean);
@@ -696,9 +745,8 @@ window.exportXlsx = async () => {
   ws['!autofilter'] = { ref: ws['!ref'] };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Visitas CHINACOAT');
-  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  await shareFile(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `CHINACOAT_anotacoes_${S.user}_${stamp()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-};
+  return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+}
 window.exportSync = async () => {
   const data = { app: 'chinacoat', v: 1, from: S.user, at: Date.now(), notes: S.notes, added: S.added };
   await shareFile(new Blob([JSON.stringify(data)], { type: 'application/json' }), `CHINACOAT_sync_${S.user}_${stamp()}.json`, 'application/json');

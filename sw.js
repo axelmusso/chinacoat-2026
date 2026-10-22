@@ -1,5 +1,5 @@
 // Cache-first so the app works offline inside the fair. Bump VERSION on every deploy.
-const VERSION = 'cc-v1';
+const VERSION = 'cc-v2';
 const ASSETS = ['./', 'index.html', 'xlsx.mini.min.js', 'manifest.webmanifest', 'data/catalog.json', 'data/plan.enc.json', 'data/map-area-a.jpg',
   'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 

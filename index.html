@@ -1,0 +1,773 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Feira CHINACOAT</title>
+<meta name="theme-color" content="#0f3d5e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CHINACOAT">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+:root {
+  --bg: #f2f3f5; --card: #fff; --ink: #14181f; --muted: #667085; --line: #e3e6ea;
+  --brand: #0f3d5e; --brand-ink: #fff; --accent: #e8590c;
+  --crit: #d92d20; --high: #f79009; --mid: #2e90fa; --low: #98a2b3; --ok: #12b76a;
+  --chip: #eef1f4; --input: #fff; --shadow: 0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.08);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117; --card: #161b22; --ink: #e6edf3; --muted: #8b949e; --line: #30363d;
+    --brand: #1f6feb; --chip: #21262d; --input: #0d1117; --shadow: none; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+header.top { position: sticky; top: 0; z-index: 10; background: var(--brand); color: var(--brand-ink);
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; display: flex; align-items: center; gap: 10px; }
+header.top h1 { font-size: 18px; margin: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+header.top button { background: rgba(255,255,255,.15); color: inherit; border: 0; border-radius: 10px; padding: 6px 10px; font-size: 15px; }
+main { padding: 12px 16px calc(env(safe-area-inset-bottom) + 90px); max-width: 760px; margin: 0 auto; }
+nav.tabs { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; background: var(--card);
+  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+nav.tabs a { flex: 1; text-align: center; padding: 8px 0 6px; color: var(--muted); text-decoration: none; font-size: 11px; }
+nav.tabs a svg { display: block; margin: 0 auto 2px; width: 24px; height: 24px; }
+nav.tabs a.on { color: var(--brand); font-weight: 600; }
+@media (prefers-color-scheme: dark) { nav.tabs a.on { color: #58a6ff; } }
+.card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); padding: 14px; margin-bottom: 12px; }
+.card h2 { font-size: 17px; margin: 0 0 8px; }
+.card h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 12px 0 4px; }
+.card h3:first-child { margin-top: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.row { display: flex; gap: 8px; align-items: center; }
+.wrap { flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.list { background: var(--card); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 12px; }
+.item { display: flex; gap: 10px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.item:last-child { border-bottom: 0; }
+.item .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item .s { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stand { font: 600 13px ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 8px; padding: 4px 7px; white-space: nowrap; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 99px; padding: 2px 8px; color: #fff; white-space: nowrap; }
+.p-Crítica { background: var(--crit); } .p-Alta { background: var(--high); } .p-Média { background: var(--mid); } .p-Baixa { background: var(--low); }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.st { font-size: 12px; border-radius: 99px; padding: 2px 8px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+.st-visitado { background: #d1fadf; color: #05603a; } .st-retornar { background: #fef0c7; color: #93370d; }
+.st-nao { background: #fee4e2; color: #912018; }
+@media (prefers-color-scheme: dark) { .st-visitado { background: #05603a; color: #d1fadf; } .st-retornar { background: #93370d; color: #fef0c7; } .st-nao { background: #912018; color: #fee4e2; } }
+.chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 99px; padding: 6px 12px; font-size: 14px; }
+.chip.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+input, textarea, select { width: 100%; font: inherit; font-size: 16px; color: var(--ink); background: var(--input);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+textarea { min-height: 110px; resize: vertical; }
+label.f { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 12px; padding: 11px 14px;
+  font: 600 15px inherit; font-family: inherit; background: var(--brand); color: #fff; text-decoration: none; }
+.btn.sec { background: var(--chip); color: var(--ink); }
+.btn.warn { background: var(--crit); }
+.btn.block { width: 100%; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg { display: flex; background: var(--chip); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: transparent; color: var(--ink); font: 600 13px inherit; font-family: inherit; padding: 8px 4px; border-radius: 8px; }
+.seg button.on { background: var(--card); box-shadow: var(--shadow); }
+.kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; font-size: 15px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+.here { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; box-shadow: var(--shadow); font-size: 14px; }
+.mapbox { position: relative; width: 100%; border-radius: 12px; overflow: hidden; background: #000; }
+.mapbox img { display: block; width: 100%; }
+.mapscroll { overflow: auto; border-radius: 12px; -webkit-overflow-scrolling: touch; }
+.mapscroll.zoom .mapbox { width: 260%; }
+.mapbox svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.steps { margin: 0; padding-left: 22px; } .steps li { margin: 6px 0; }
+.thumbs { display: flex; gap: 8px; flex-wrap: wrap; }
+.thumbs figure { margin: 0; position: relative; }
+.thumbs img { width: 92px; height: 92px; object-fit: cover; border-radius: 10px; display: block; }
+.thumbs button { position: absolute; top: -6px; right: -6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: var(--crit); color: #fff; font-weight: 700; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 80px); transform: translateX(-50%); background: #111; color: #fff;
+  padding: 10px 16px; border-radius: 12px; font-size: 14px; z-index: 50; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+.toast.show { opacity: .92; }
+.saved { font-size: 12px; color: var(--ok); }
+.empty { text-align: center; color: var(--muted); padding: 30px 10px; }
+.big-cn { font-size: 30px; font-weight: 700; text-align: center; line-height: 1.3; }
+details.card summary { font-weight: 600; cursor: pointer; }
+.gate { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 24px; max-width: 420px; margin: 0 auto; }
+.warnbox { background: #fffaeb; color: #7a2e0e; border-radius: 10px; padding: 8px 10px; font-size: 13px; margin-top: 8px; }
+@media (prefers-color-scheme: dark) { .warnbox { background: #3d2a0a; color: #fec84b; } }
+.hallsvg text { font: 600 9px -apple-system, sans-serif; fill: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast" class="toast"></div>
+<script src="xlsx.mini.min.js" defer></script>
+<script>
+'use strict';
+// ---------- constants ----------
+const PASS_KEY = 'cc_plan', NOTES_KEY = 'cc_notes', ADDED_KEY = 'cc_added', USER_KEY = 'cc_user', HERE_KEY = 'cc_here';
+const STATUSES = [['', 'Pendente'], ['visitado', 'Visitado'], ['retornar', 'Retornar'], ['nao', 'Não encontrado / fechado']];
+const PRIOS = ['Crítica', 'Alta', 'Média', 'Baixa'];
+const PRIO_RANK = { 'Crítica': 0, 'Alta': 1, 'Média': 2, 'Baixa': 3 };
+const PRIO_COLOR = { 'Crítica': '#d92d20', 'Alta': '#f79009', 'Média': '#2e90fa', 'Baixa': '#98a2b3' };
+const ZONES = { '3': 'Pó (powder coatings)', '4': 'Máquinas/instrumentos internacionais', '5': 'Máquinas/instrumentos China', '6': 'UV/EB', '7': 'Matérias-primas' };
+const CAT_PT = {
+  '1.1.01': 'Resinas alquídicas', '1.1.02': 'Resinas acrílicas', '1.1.03': 'Resinas epóxi', '1.1.04': 'Resinas poliéster', '1.1.05': 'Poliuretanos',
+  '1.1.06': 'Resinas de silicone', '1.1.07': 'Resinas fluoradas', '1.1.08': 'Resinas híbridas', '1.1.09': 'Celulósicos', '1.1.10': 'Poliolefinas cloradas (CPO)',
+  '1.1.11': 'Resinas amínicas', '1.1.12': 'Isocianatos', '1.1.13': 'Melamínicas', '1.1.14': 'Resinas naturais', '1.1.15': 'Resinas funcionais',
+  '1.1.16': 'Matérias-primas p/ resinas', '1.1.17': 'Monômeros', '1.1.18': 'Ligantes', '1.1.19': 'Ligantes naturais', '1.1.20': 'Intermediários',
+  '1.1.21': 'Óleos e ácidos graxos', '1.1.22': 'Outras resinas', '1.2.01': 'Pigmentos anticorrosivos', '1.2.02': 'Pigmentos de efeito',
+  '1.2.03': 'Pigmentos inorgânicos', '1.2.04': 'Pigmentos orgânicos', '1.2.05': 'Pigmentos brancos', '1.2.06': 'Concentrados de pigmento',
+  '1.2.07': 'Perolizados', '1.2.08': 'Fluorescentes', '1.2.09': 'Termocrômicos', '1.2.10': 'Outros pigmentos', '1.2.11': 'Cargas',
+  '1.3.01': 'Antiespumantes', '1.3.02': 'Antipele', '1.3.03': 'Promotores de aderência', '1.3.04': 'Biocidas', '1.3.05': 'Reticulantes',
+  '1.3.06': 'Secantes', '1.3.07': 'Emulsificantes', '1.3.08': 'Surfactantes', '1.3.09': 'Dispersantes', '1.3.10': 'Modificadores reológicos',
+  '1.3.11': 'Espessantes', '1.3.12': 'Tixotrópicos', '1.3.13': 'Nivelantes', '1.3.14': 'Foscantes', '1.3.15': 'Estabilizantes', '1.3.16': 'Ceras',
+  '1.3.17': 'Catalisadores', '1.3.18': 'Slip / lubrificantes', '1.3.19': 'Plastificantes', '1.3.20': 'Outros aditivos', '1.3.21': 'Solventes',
+  '1.3.22': 'Iniciadores / fotoiniciadores', '1.3.23': 'Estruturantes'
+};
+// Hall centres in the 2000x1414 official plan; data/map-area-a.jpg is its y=260..1050 crop. Column 1-5 runs west→east; x.1 = 1/F, x.2 = 2/F; 6.1 sits north of the promenade.
+const HALLS = {
+  '1.1': [545, 865], '1.2': [550, 660], '2.1': [735, 865], '2.2': [740, 660], '3.1': [925, 865], '3.2': [930, 660],
+  '4.1': [1120, 865], '4.2': [1125, 660], '5.1': [1315, 865], '5.2': [1320, 660], '6.1': [725, 400]
+};
+const VENUE_CN = '广州市海珠区阅江中路380号 中国进出口商品交易会展馆 A区';
+
+// ---------- state ----------
+const S = { plan: null, catalog: [], catById: new Map(), notes: {}, added: [], user: '', here: null };
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { toast('Erro ao salvar: ' + e.message); } };
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2200); }
+
+// ---------- photos (IndexedDB) ----------
+const DB = { db: null };
+function idb() {
+  if (DB.db) return Promise.resolve(DB.db);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('chinacoat', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('photos', { keyPath: 'id' }).createIndex('eid', 'eid');
+    r.onsuccess = () => res(DB.db = r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function photosFor(eid) {
+  const db = await idb();
+  return new Promise((res) => { const q = db.transaction('photos').objectStore('photos').index('eid').getAll(eid); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+}
+async function allPhotos() {
+  const db = await idb();
+  return new Promise((res) => { const q = db.transaction('photos').objectStore('photos').getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+}
+async function putPhoto(p) { const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('photos', 'readwrite'); tx.objectStore('photos').put(p); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+async function delPhoto(id) { const db = await idb(); return new Promise((res) => { const tx = db.transaction('photos', 'readwrite'); tx.objectStore('photos').delete(id); tx.oncomplete = res; }); }
+async function shrink(file, max = 1600) {
+  const bmp = await createImageBitmap(file).catch(() => null);
+  if (!bmp) return file;
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise((res) => c.toBlob((b) => res(b || file), 'image/jpeg', 0.8));
+}
+
+// ---------- crypto gate ----------
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+async function decryptPlan(pass) {
+  const enc = await (await fetch('data/plan.enc.json')).json();
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(enc.salt), iterations: enc.iter, hash: 'SHA-256' }, base,
+    { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(enc.iv) }, key, b64(enc.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+function renderGate(err) {
+  $('#app').innerHTML = `<div class="gate">
+    <h1 style="margin:0 0 4px">CHINACOAT 2026</h1>
+    <p class="muted" style="margin:0 0 20px">Roteiro Corquímica · Guangzhou, 11–13 nov</p>
+    <label class="f">Seu nome (aparece nas anotações)</label>
+    <input id="g-user" autocomplete="name" placeholder="Ex.: Axel" value="${esc(S.user)}">
+    <label class="f">Senha do roteiro</label>
+    <input id="g-pass" type="password" autocomplete="current-password">
+    ${err ? `<div class="warnbox">${esc(err)}</div>` : ''}
+    <button class="btn block" id="g-go" style="margin-top:16px">Entrar</button>
+    <p class="muted small" style="margin-top:16px">A senha só é pedida uma vez neste aparelho. Depois disso o app funciona sem internet.</p>
+  </div>`;
+  const go = async () => {
+    const user = $('#g-user').value.trim(), pass = $('#g-pass').value;
+    if (!user) return renderGate('Informe seu nome.');
+    $('#g-go').textContent = 'Abrindo…';
+    try {
+      S.plan = await decryptPlan(pass);
+      S.user = user; save(USER_KEY, user); save(PASS_KEY, S.plan);
+      boot();
+    } catch { renderGate('Senha incorreta (ou sem conexão na primeira abertura).'); }
+  };
+  $('#g-go').onclick = go;
+  $('#g-pass').onkeydown = (e) => { if (e.key === 'Enter') go(); };
+}
+
+// ---------- entities ----------
+// Every company the user can open is an "entity": planned ones (p01…) or catalog ones (c<exhid>).
+function catRow(id) { const r = S.catById.get(String(id)); if (!r) return null; const [cid, abbr, name, country, hall, zone, stand, isNew, cats, focus] = r; return { cid, abbr, name, country, hall, zone, stand, isNew, cats, focus }; }
+function entity(eid) {
+  if (eid.startsWith('p')) {
+    const v = S.plan.visits.find((x) => x.id === eid); if (!v) return null;
+    const c = v.catId ? catRow(v.catId) : null;
+    return { eid, planned: true, kind: v.kind, title: v.name, name: v.fullName || v.name, abbr: c?.abbr || '', country: v.country || c?.country || '',
+      hall: v.hall, stand: v.stand, zone: c?.zone || '', cats: c?.cats || [], priority: v.priority, objective: v.objective, material: v.material,
+      question: v.question, sample: v.sample, owner: v.owner, day: v.day, period: v.period, situation: v.situation, focus: c?.focus, preset: v.preset, web: v.web, order: v.order };
+  }
+  const c = catRow(eid.slice(1)); if (!c) return null;
+  const n = S.notes[eid] || {};
+  const short = c.abbr.replace(/[㐀-鿿＀-￯（）]+/g, '').trim();
+  return { eid, planned: false, kind: 'empresa', title: short || c.name, name: c.name, abbr: c.abbr, country: c.country, hall: c.hall, stand: c.stand,
+    zone: c.zone, cats: c.cats, priority: n.priority || c.focus?.p || 'Média', objective: c.focus ? c.focus.f : '', material: '', question: c.focus ? c.focus.a : '',
+    focus: c.focus, isNew: c.isNew };
+}
+const plannedFor = new Map(); // catalog id -> planned eid
+function noteOf(eid) { return S.notes[eid] || {}; }
+function setNote(eid, patch) {
+  const n = { ...noteOf(eid), ...patch, by: S.user, updatedAt: Date.now() };
+  S.notes[eid] = n; save(NOTES_KEY, S.notes);
+  if (eid.startsWith('c') && !S.added.includes(eid)) { S.added.push(eid); save(ADDED_KEY, S.added); }
+}
+function statusOf(eid) { return noteOf(eid).status || ''; }
+function statusChip(eid) { const s = statusOf(eid); if (!s) return ''; const l = STATUSES.find((x) => x[0] === s)[1]; return `<span class="st st-${s}">${esc(l.split(' /')[0])}</span>`; }
+const prioPill = (p) => p ? `<span class="pill p-${esc(p)}">${esc(p)}</span>` : '';
+
+// ---------- geometry & directions ----------
+function parseStand(s) { const m = /^(\d\.\d)([A-Z])(\d+)/.exec(s || ''); return m ? { hall: m[1], aisle: m[2], num: +m[3] } : null; }
+function hallInfo(h) { return h === '6.1' ? { col: 2.5, floor: 1, north: true } : { col: +h[0], floor: +h[2] }; }
+function cost(from, to) {
+  const a = parseStand(from), b = parseStand(to);
+  if (!b) return 999; if (!a) return 0;
+  if (a.hall === b.hall) return Math.abs(a.aisle.charCodeAt(0) - b.aisle.charCodeAt(0)) * 0.6 + Math.abs(a.num - b.num) / 25;
+  const A = hallInfo(a.hall), B = hallInfo(b.hall);
+  const sameBlock = A.col === B.col && !A.north && !B.north;
+  return 2 + Math.abs(A.col - B.col) * 3 + (sameBlock ? 1 : (A.floor !== B.floor ? 1 : 2));
+}
+const floorName = (f) => f === 1 ? '1/F (térreo)' : '2/F (piso superior)';
+function directions(fromStand, toStand) {
+  const b = parseStand(toStand);
+  if (!b) return { steps: ['Stand ainda não confirmado — procure no balcão de informações ou no catálogo impresso.'], mins: null };
+  const B = hallInfo(b.hall), steps = []; let mins = 2;
+  const a = parseStand(fromStand), A = a ? hallInfo(a.hall) : null;
+  const goHall = () => {
+    if (B.north) steps.push(`O Hall 6.1 fica do lado <b>norte</b> do Pearl River Promenade (em frente aos halls 2.x). Atravesse o Promenade e entre pelo acesso do 1/F.`);
+    else steps.push(`No bloco do Hall ${b.hall[0]}, ${B.floor === 1 ? '<b>desça</b> a escada rolante para o' : '<b>suba</b> a escada rolante para o'} <b>Hall ${b.hall}</b> — ${floorName(B.floor)}.`);
+  };
+  if (!a) {
+    steps.push('Chegando de metrô (Linha 8): estação <b>Xingang Dong</b>, saída A → Gate 6 (lado oeste) ou estação <b>Pazhou</b>, saída A → lado leste.');
+    steps.push(`Entre pelo <b>Pearl River Promenade</b> (corredor central, nível L/F). Os blocos de halls 1 → 5 ficam de <b>oeste para leste</b>.`);
+    goHall(); mins = null;
+  } else if (a.hall === b.hall) {
+    steps.push(`Você já está no <b>Hall ${b.hall}</b>.`);
+    mins = 1 + Math.round(cost(fromStand, toStand));
+  } else if (!A.north && !B.north && A.col === B.col) {
+    steps.push(`O Hall ${b.hall} fica no mesmo bloco, ${B.floor > A.floor ? 'um andar <b>acima</b>' : 'um andar <b>abaixo</b>'}. Use a escada rolante entre os halls ${b.hall[0]}.1 e ${b.hall[0]}.2.`);
+    mins = 4;
+  } else {
+    steps.push(`Saia do Hall ${a.hall} e ${A.floor === 1 ? '<b>suba</b>' : '<b>desça</b>'} até o <b>Pearl River Promenade</b> (corredor central, L/F).`);
+    if (!B.north && !A.north) {
+      const n = Math.abs(B.col - A.col);
+      steps.push(`Caminhe <b>${n} bloco${n > 1 ? 's' : ''} para ${B.col > A.col ? 'leste' : 'oeste'}</b> (sentido Hall ${B.col > A.col ? '5' : '1'}).`);
+      mins = 3 + n * 3;
+    } else if (A.north) { steps.push(`Atravesse o Promenade para o lado sul e caminhe até o bloco do Hall ${b.hall[0]}.`); mins = 3 + Math.abs(B.col - 2.5) * 3; }
+    else mins = 3 + Math.abs(A.col - 2.5) * 3;
+    goHall();
+  }
+  steps.push(`Dentro do hall, procure o <b>corredor ${b.aisle}</b> (placas no teto/chão) e siga até o nº <b>${String(b.num).padStart(2, '0')}</b> → stand <b>${esc(toStand)}</b>.`);
+  return { steps, mins: mins && Math.round(mins) };
+}
+
+// ---------- map renderers ----------
+function overviewMap(marks, origin) {
+  // marks: [{hall, color, label}], origin hall optional
+  const circles = marks.map((m) => { const p = HALLS[m.hall]; if (!p) return '';
+    return `<g><circle cx="${p[0]}" cy="${p[1]}" r="58" fill="${m.color}" fill-opacity=".35" stroke="${m.color}" stroke-width="8"/>
+      ${m.label ? `<text x="${p[0]}" y="${p[1] + 22}" text-anchor="middle" font-size="64" font-weight="800" fill="#fff" stroke="#000" stroke-width="3" paint-order="stroke">${esc(m.label)}</text>` : ''}</g>`; }).join('');
+  const op = origin && HALLS[origin] && [HALLS[origin][0] + 62, HALLS[origin][1] - 48];
+  const o = op ? `<g><circle cx="${op[0]}" cy="${op[1]}" r="40" fill="#12b76a" stroke="#fff" stroke-width="8"/><text x="${op[0]}" y="${op[1] + 16}" text-anchor="middle" font-size="44" font-weight="800" fill="#fff">EU</text></g>` : '';
+  return `<div class="mapscroll" onclick="this.classList.toggle('zoom')"><div class="mapbox"><img src="data/map-area-a.jpg" alt="Planta geral Area A"><svg viewBox="0 260 2000 790" preserveAspectRatio="none">${circles}${o}</svg></div></div>
+    <div class="muted small" style="margin-top:4px">Toque no mapa para ampliar/reduzir.</div>`;
+}
+const hallShape = new Map(); // hall -> {aisles:[], max}
+function hallSvg(hall, highlights, here) {
+  const sh = hallShape.get(hall); if (!sh) return '';
+  const W = 340, cell = (W - 30) / sh.max, rowH = 30, H = sh.aisles.length * rowH + 24;
+  let g = '';
+  sh.aisles.forEach((a, i) => {
+    const y = 14 + i * rowH;
+    g += `<text x="2" y="${y + 13}">${a}</text><rect x="22" y="${y + 4}" width="${W - 30}" height="12" rx="3" fill="var(--chip)"/>`;
+  });
+  g += `<text x="22" y="${H - 2}">01</text><text x="${W - 8}" y="${H - 2}" text-anchor="end">${sh.max}</text>`;
+  const pin = (st, color, r, label, href) => { const p = parseStand(st); if (!p || p.hall !== hall) return ''; const i = sh.aisles.indexOf(p.aisle); if (i < 0) return '';
+    const x = 22 + (p.num - 0.5) * cell, y = 14 + i * rowH + 10;
+    const c = `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" stroke="#fff" stroke-width="1.5"/>${label ? `<text x="${x}" y="${y - r - 2}" text-anchor="middle" style="fill:var(--ink);font-size:9px">${esc(label)}</text>` : ''}`;
+    return href ? `<a href="${href}">${c}</a>` : c; };
+  highlights.forEach((h) => { g += pin(h.stand, h.color, h.r || 6, h.label, h.href); });
+  if (here) g += pin(here, '#12b76a', 7, 'EU');
+  return `<svg class="hallsvg" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Esquema do hall ${hall}">${g}</svg>
+    <p class="muted small" style="margin:6px 0 0">Esquema aproximado do Hall ${hall} gerado a partir dos números de stand (corredores ${sh.aisles[0]}–${sh.aisles.at(-1)}, nº 01–${sh.max}). Confirme a orientação na planta afixada na entrada do hall.</p>`;
+}
+
+// ---------- views ----------
+let route = { name: 'roteiro', arg: null };
+const UI = load('cc_ui', { day: '11/11', sort: 'plan', pf: '', cq: '', ch: '', cz: '', cc: '', eq: '' });
+const saveUI = () => save('cc_ui', UI);
+function shell(title, body, opts = {}) {
+  const tab = (n, label, icon) => `<a href="#/${n}" class="${route.name === n ? 'on' : ''}">${icon}${label}</a>`;
+  const I = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  $('#app').innerHTML = `<header class="top">${opts.back ? `<button onclick="history.back()" aria-label="Voltar">‹</button>` : ''}<h1>${esc(title)}</h1>${opts.right || ''}</header>
+  <main>${body}</main>
+  <nav class="tabs">
+    ${tab('roteiro', 'Roteiro', I('<path d="M3 6h18M3 12h18M3 18h12"/>'))}
+    ${tab('empresas', 'Empresas', I('<path d="M3 21V7l9-4 9 4v14"/><path d="M9 21v-6h6v6"/>'))}
+    ${tab('catalogo', 'Catálogo', I('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'))}
+    ${tab('mapa', 'Mapa', I('<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>'))}
+    ${tab('mais', 'Mais', I('<circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>'))}
+  </nav>`;
+  window.scrollTo(0, opts.keepScroll || 0);
+}
+function hereBar() {
+  const h = S.here;
+  return `<div class="here"><span class="dot" style="background:${h ? '#12b76a' : 'var(--low)'}"></span>
+    <div class="grow">${h ? `Você está em <b class="stand">${esc(h.stand)}</b> <span class="muted">${esc(h.label || '')}</span>` : '<span class="muted">Localização não definida — marque um stand como visitado ou defina abaixo.</span>'}</div>
+    <button class="chip" onclick="setHerePrompt()">Alterar</button></div>`;
+}
+window.setHerePrompt = () => {
+  const v = prompt('Em qual stand você está? (ex.: 2.1E21) — deixe vazio para limpar', S.here?.stand || '');
+  if (v === null) return;
+  const st = v.trim().toUpperCase();
+  if (st && !parseStand(st)) return toast('Formato esperado: 2.1E21');
+  S.here = st ? { stand: st, label: '' } : null; save(HERE_KEY, S.here); render();
+};
+function itemRow(e, extra = '') {
+  const pr = PRIO_COLOR[e.priority] || 'var(--low)';
+  return `<a class="item" href="#/e/${e.eid}"><span class="dot" style="background:${pr}"></span>
+    <div class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(e.objective || e.name)}</div></div>
+    ${extra}${statusChip(e.eid)}<span class="stand">${esc(parseStand(e.stand) ? e.stand : '—')}</span></a>`;
+}
+
+function viewRoteiro() {
+  const days = ['11/11', '12/11', '13/11', 'Todas'];
+  let list = S.plan.visits.filter((v) => v.kind !== 'busca').map((v) => entity(v.id));
+  if (UI.day !== 'Todas') list = list.filter((e) => e.day === UI.day);
+  const pending = list.filter((e) => !['visitado', 'nao'].includes(statusOf(e.eid)));
+  const done = list.filter((e) => ['visitado', 'nao'].includes(statusOf(e.eid)));
+  if (UI.sort === 'near') pending.sort((x, y) => cost(S.here?.stand, x.stand) - cost(S.here?.stand, y.stand) || PRIO_RANK[x.priority] - PRIO_RANK[y.priority]);
+  else if (UI.sort === 'prio') pending.sort((x, y) => PRIO_RANK[x.priority] - PRIO_RANK[y.priority] || x.order - y.order);
+  const iso = { '11/11': '2026-11-11', '12/11': '2026-11-12', '13/11': '2026-11-13' }[UI.day];
+  const ag = S.plan.agenda.filter((a) => UI.day === 'Todas' ? a.day.startsWith('Dia') : a.date === iso);
+  const next = pending.find((e) => parseStand(e.stand));
+  const added = S.added.map(entity).filter(Boolean).filter((e) => !['visitado', 'nao'].includes(statusOf(e.eid)));
+  const total = S.plan.visits.filter((v) => v.kind === 'empresa').length, vis = S.plan.visits.filter((v) => v.kind === 'empresa' && statusOf(v.id) === 'visitado').length;
+  shell('Roteiro CHINACOAT', `
+    ${hereBar()}
+    <div class="seg" style="margin-bottom:10px">${days.map((d) => `<button class="${UI.day === d ? 'on' : ''}" onclick="UI.day='${d}';saveUI();render()">${d === 'Todas' ? 'Todos' : d}</button>`).join('')}</div>
+    <div class="row" style="margin-bottom:10px"><span class="muted small grow">${vis}/${total} empresas visitadas</span>
+      <select style="width:auto;padding:6px 10px;font-size:14px" onchange="UI.sort=this.value;saveUI();render()">
+        <option value="plan" ${UI.sort === 'plan' ? 'selected' : ''}>Ordem da planilha</option>
+        <option value="near" ${UI.sort === 'near' ? 'selected' : ''}>Mais perto de mim</option>
+        <option value="prio" ${UI.sort === 'prio' ? 'selected' : ''}>Prioridade</option></select></div>
+    ${next ? `<a class="card" href="#/rota/${next.eid}" style="display:block;color:inherit;text-decoration:none;border-left:4px solid var(--accent)">
+      <div class="muted small">PRÓXIMO</div><div class="row"><b class="grow">${esc(next.title)}</b><span class="stand">${esc(next.stand)}</span></div>
+      <div class="small" style="margin-top:4px">Como chegar ›${S.here ? ` <span class="muted">~${directions(S.here.stand, next.stand).mins} min</span>` : ''}</div></a>` : ''}
+    ${pending.length ? `<div class="list">${pending.map((e) => itemRow(e)).join('')}</div>` : '<div class="empty">Tudo visitado neste dia 🎉</div>'}
+    ${added.length ? `<h3 class="muted small" style="margin:16px 4px 6px">ADICIONADAS DO CATÁLOGO</h3><div class="list">${added.map((e) => itemRow(e)).join('')}</div>` : ''}
+    ${ag.length ? `<details class="card"><summary>Agenda do dia (planilha 06)</summary>${ag.map((a) => `<div style="margin-top:10px"><div class="row"><b class="grow">${esc(a.slot)} · ${esc(a.who)}</b><span class="stand">${esc(a.hall)}</span></div>
+      <div class="small">${esc(a.action)}</div><div class="small muted">Entrega: ${esc(a.deliver)} · ${esc(a.owner)}</div></div>`).join('')}</details>` : ''}
+    ${done.length ? `<h3 class="muted small" style="margin:16px 4px 6px">CONCLUÍDAS</h3><div class="list">${done.map((e) => itemRow(e)).join('')}</div>` : ''}
+  `);
+}
+
+function viewEmpresas() {
+  const q = UI.eq.toLowerCase();
+  const match = (e) => !q || [e.title, e.name, e.abbr, e.stand, e.material, e.objective].join(' ').toLowerCase().includes(q);
+  const pf = UI.pf;
+  const planned = S.plan.visits.filter((v) => v.kind === 'empresa').map((v) => entity(v.id)).filter((e) => match(e) && (!pf || e.priority === pf))
+    .sort((a, b) => PRIO_RANK[a.priority] - PRIO_RANK[b.priority] || a.order - b.order);
+  const added = S.added.map(entity).filter(Boolean).filter((e) => match(e) && (!pf || e.priority === pf));
+  const buscas = S.plan.visits.filter((v) => v.kind === 'busca').map((v) => entity(v.id)).filter(match);
+  shell('Empresas', `
+    <input type="search" placeholder="Buscar nome, stand, matéria-prima…" value="${esc(UI.eq)}" oninput="UI.eq=this.value;saveUI();debounce(render)" id="eq">
+    <div class="chips" style="margin-top:10px">${['', ...PRIOS].map((p) => `<button class="chip ${pf === p ? 'on' : ''}" onclick="UI.pf='${p}';saveUI();render()">${p || 'Todas'}</button>`).join('')}</div>
+    <h3 class="muted small" style="margin:6px 4px">PLANEJADAS (${planned.length})</h3>
+    <div class="list">${planned.map((e) => itemRow(e)).join('') || '<div class="empty">Nada encontrado</div>'}</div>
+    <h3 class="muted small" style="margin:6px 4px">ADICIONADAS DO CATÁLOGO (${added.length})</h3>
+    <div class="list">${added.map((e) => itemRow(e)).join('') || '<div class="empty small">Abra o Catálogo e toque em “Adicionar” para incluir outras empresas.</div>'}</div>
+    <h3 class="muted small" style="margin:6px 4px">BUSCAS EM ABERTO (${buscas.length})</h3>
+    <div class="list">${buscas.map((e) => `<a class="item" href="#/e/${e.eid}"><span class="dot" style="background:${PRIO_COLOR[e.priority]}"></span><div class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(e.material)}</div></div><span class="muted">›</span></a>`).join('')}</div>
+  `, { keepScroll: window.scrollY });
+  refocus('eq');
+}
+function refocus(id) { const el = document.getElementById(id); if (el && refocus.last === id) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+document.addEventListener('focusin', (e) => { refocus.last = e.target.id || null; });
+window.debounce = (fn) => { clearTimeout(debounce.h); debounce.h = setTimeout(fn, 250); };
+
+function viewCatalogo() {
+  const q = UI.cq.trim().toLowerCase();
+  let rows = S.catalog;
+  if (UI.ch) rows = rows.filter((r) => r[4] === UI.ch);
+  if (UI.cz) rows = rows.filter((r) => r[5] === UI.cz);
+  if (UI.cc) rows = rows.filter((r) => r[8].some((c) => c.startsWith(UI.cc)));
+  if (q) rows = rows.filter((r) => (r[1] + ' ' + r[2] + ' ' + r[6] + ' ' + r[3]).toLowerCase().includes(q));
+  const lim = catLimit;
+  const halls = [...new Set(S.catalog.map((r) => r[4]))].sort();
+  const opt = (v, l, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${esc(l)}</option>`;
+  shell('Catálogo de expositores', `
+    <input type="search" id="cq" placeholder="Nome, nome chinês ou stand (ex.: 2.1E)" value="${esc(UI.cq)}" oninput="UI.cq=this.value;saveUI();catLimit=60;debounce(render)">
+    <div class="row" style="margin:8px 0">
+      <select onchange="UI.ch=this.value;saveUI();render()">${opt('', 'Todos os halls', UI.ch)}${halls.map((h) => opt(h, 'Hall ' + h, UI.ch)).join('')}</select>
+      <select onchange="UI.cz=this.value;saveUI();render()">${opt('', 'Todas as zonas', UI.cz)}${Object.entries(ZONES).map(([k, v]) => opt(k, 'Zona ' + k + ' · ' + v, UI.cz)).join('')}</select>
+    </div>
+    <select onchange="UI.cc=this.value;saveUI();render()" style="margin-bottom:10px">${opt('', 'Todas as categorias de produto', UI.cc)}${Object.entries(CAT_PT).map(([k, v]) => opt(k, v, UI.cc)).join('')}</select>
+    <div class="row muted small" style="margin:0 4px 8px"><span class="grow">${rows.length} expositores</span>${(UI.cq || UI.ch || UI.cz || UI.cc) ? `<button class="chip" onclick="UI.cq=UI.ch=UI.cz=UI.cc='';saveUI();render()">Limpar filtros</button>` : ''}</div>
+    <div class="list">${rows.slice(0, lim).map((r) => {
+      const pe = plannedFor.get(r[0]), eid = pe || 'c' + r[0], isAdded = S.added.includes('c' + r[0]);
+      const tag = pe ? '<span class="pill p-Média">No roteiro</span>' : isAdded ? '<span class="pill" style="background:var(--ok)">Adicionada</span>' : r[9] ? `<span class="pill p-${esc(r[9].p)}" title="Triagem Corquímica">${esc(r[9].p)}</span>` : '';
+      return `<a class="item" href="#/e/${eid}"><div class="grow"><div class="t">${esc(r[1])}</div><div class="s">${esc(r[2])} · ${esc(r[3])}</div></div>${tag}${statusChip(eid)}<span class="stand">${esc(r[6])}</span></a>`;
+    }).join('') || '<div class="empty">Nenhum expositor</div>'}</div>
+    ${rows.length > lim ? `<button class="btn sec block" onclick="catLimit+=100;render()">Mostrar mais (${rows.length - lim})</button>` : ''}
+    <p class="muted small">Fonte: lista oficial de expositores chinacoat.net, baixada em ${esc(S.plan.generated || '22/10/2026')}. Categorias informadas pelos próprios expositores.</p>
+  `, { keepScroll: window.scrollY });
+  refocus('cq');
+}
+let catLimit = 60;
+
+async function viewEntity(eid) {
+  const e = entity(eid);
+  if (!e) return shell('Não encontrado', '<div class="empty">Empresa não encontrada.</div>', { back: true });
+  const n = noteOf(eid);
+  const st = parseStand(e.stand);
+  const isAdded = S.added.includes(eid);
+  const info = [];
+  if (e.planned && e.kind === 'busca') {
+    shell(e.title, `<div class="card">${prioPill(e.priority)}<h3 style="margin-top:10px">Objetivo</h3><div>${esc(e.objective)}</div>
+      <h3>Assunto / demanda</h3><div>${esc(e.material)}</div><h3>Pergunta técnica</h3><div>${esc(e.question)}</div>
+      <div class="warnbox">${esc(e.situation)}</div>
+      <button class="btn block" style="margin-top:12px" onclick='UI.cq=${JSON.stringify(e.preset.q || '')};UI.ch="";UI.cz=${JSON.stringify(e.preset.zone || '')};UI.cc=${JSON.stringify(e.preset.cat || '')};saveUI();location.hash="#/catalogo"'>Procurar candidatos no catálogo</button></div>
+      ${notesForm(eid, n, 'Candidatos encontrados / observações')}`, { back: true });
+    bindNotes(eid); return;
+  }
+  shell(e.title, `
+    <div class="card">
+      <div class="row wrap" style="margin-bottom:6px">${prioPill(e.priority)}${statusChip(eid)}${e.isNew ? '<span class="st">Novo expositor</span>' : ''}</div>
+      <h2 style="margin:4px 0">${esc(e.name)}</h2>
+      ${e.abbr ? `<div class="muted">${esc(e.abbr)}</div>` : ''}
+      <div class="row wrap" style="margin-top:10px">
+        <span class="stand" style="font-size:16px">${esc(st ? e.stand : (e.stand || 'Stand a confirmar'))}</span>
+        ${st ? `<span class="muted small">Hall ${esc(st.hall)} · corredor ${esc(st.aisle)}${e.zone ? ' · Zona ' + esc(e.zone) + ' ' + esc(ZONES[e.zone] || '') : ''}</span>` : ''}
+      </div>
+      ${e.situation && !/^Confirmar stand$/.test(e.situation) ? `<div class="warnbox">${esc(e.situation)}</div>` : ''}
+      <div class="btns" style="margin-top:12px">
+        ${st ? `<a class="btn" href="#/rota/${eid}">Como chegar</a>` : '<span></span>'}
+        ${!e.planned ? (isAdded ? `<button class="btn sec" onclick="removeAdded('${eid}')">Remover da lista</button>` : `<button class="btn sec" onclick="addEntity('${eid}')">+ Adicionar à lista</button>`) : `<a class="btn sec" href="#/mostrar/${eid}">Mostrar em chinês</a>`}
+      </div>
+    </div>
+    ${e.planned ? `<div class="card">
+      <h3>Objetivo da visita</h3><div>${esc(e.objective) || '—'}</div>
+      <h3>Matéria-prima / tecnologia alvo</h3><div>${esc(e.material) || '—'}</div>
+      <h3>Pergunta-chave</h3><div>${esc(e.question) || '—'}</div>
+      ${e.sample ? `<h3>Amostra / material a obter</h3><div>${esc(e.sample)}</div>` : ''}
+      <dl class="kv" style="margin-top:12px">${e.day ? `<dt>Dia</dt><dd>${esc(e.day)} ${esc(e.period)}</dd>` : ''}${e.owner ? `<dt>Responsável</dt><dd>${esc(e.owner)}</dd>` : ''}${e.country ? `<dt>País</dt><dd>${esc(e.country)}</dd>` : ''}${e.web ? `<dt>Contato</dt><dd>${esc(e.web)}</dd>` : ''}</dl>
+    </div>` : `<div class="card">
+      ${e.focus ? `<h3>Triagem Corquímica (Hall 2.1)</h3><div>${esc(e.focus.f)}</div><div class="muted small">O que pedir: ${esc(e.focus.a)}</div>` : ''}
+      <label class="f">Prioridade</label>
+      <div class="seg">${PRIOS.map((p) => `<button class="${(n.priority || e.priority) === p ? 'on' : ''}" onclick="setNote('${eid}',{priority:'${p}'});render()">${p}</button>`).join('')}</div>
+      <label class="f">Objetivo / matéria-prima de interesse</label>
+      <input data-k="objective" value="${esc(n.objective || '')}" placeholder="Ex.: fotoiniciador LED, sílica fosca…">
+      <dl class="kv" style="margin-top:12px"><dt>País</dt><dd>${esc(e.country)}</dd></dl>
+      <div class="row wrap" style="margin-top:10px;gap:6px">${e.cats.map((c) => `<span class="st">${esc(CAT_PT[c.slice(0, 6)] || c)}</span>`).join('')}</div>
+    </div>`}
+    ${e.planned && e.cats.length ? `<details class="card"><summary>Categorias no catálogo (${e.cats.length})</summary><div class="row wrap" style="margin-top:10px;gap:6px">${e.cats.map((c) => `<span class="st">${esc(CAT_PT[c.slice(0, 6)] || c)}</span>`).join('')}</div></details>` : ''}
+    ${notesForm(eid, n, e.planned ? 'Observações' : 'Principais pontos tratados')}
+  `, { back: true });
+  bindNotes(eid);
+}
+function notesForm(eid, n, obsLabel) {
+  return `<div class="card" id="notes">
+    <div class="row"><h2 class="grow" style="margin:0">Anotações da visita</h2><span class="saved" id="saved">${n.updatedAt ? 'Salvo ' + new Date(n.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + (n.by ? ' · ' + esc(n.by) : '') : ''}</span></div>
+    <label class="f">Status</label>
+    <div class="seg">${STATUSES.map(([k, l]) => `<button class="${(n.status || '') === k ? 'on' : ''}" onclick="setStatus('${eid}','${k}')">${l.split(' /')[0]}</button>`).join('')}</div>
+    <label class="f">Nome de quem nos atendeu</label><input data-k="contact" value="${esc(n.contact || '')}" autocomplete="off">
+    <label class="f">Cargo</label><input data-k="role" value="${esc(n.role || '')}" autocomplete="off">
+    <label class="f">E-mail</label><div class="row"><input data-k="email" type="email" inputmode="email" value="${esc(n.email || '')}" autocomplete="off">${n.email ? `<a class="btn sec" href="mailto:${esc(n.email)}">✉︎</a>` : ''}</div>
+    <label class="f">WhatsApp (com código do país)</label><div class="row"><input data-k="whatsapp" type="tel" inputmode="tel" placeholder="+86 138…" value="${esc(n.whatsapp || '')}" autocomplete="off">${n.whatsapp ? `<a class="btn sec" href="https://wa.me/${esc((n.whatsapp || '').replace(/\D/g, ''))}">WA</a>` : ''}</div>
+    <label class="f">WeChat ID</label><input data-k="wechat" value="${esc(n.wechat || '')}" autocomplete="off">
+    <label class="f">${esc(obsLabel)}</label><textarea data-k="obs" placeholder="Pontos tratados, respostas, preços, MOQ, prazos…">${esc(n.obs || '')}</textarea>
+    <label class="f">Amostras / documentos solicitados</label><input data-k="samples" value="${esc(n.samples || '')}" placeholder="TDS, SDS, 1 kg de…">
+    <label class="f">Próximos passos</label><input data-k="next" value="${esc(n.next || '')}" placeholder="Enviar e-mail, cotação…">
+    <label class="f">Interesse</label>
+    <div class="seg">${[1, 2, 3, 4, 5].map((k) => `<button class="${n.score == k ? 'on' : ''}" onclick="setNote('${eid}',{score:${n.score == k ? 0 : k}});render()">${'★'.repeat(k)}</button>`).join('')}</div>
+    <label class="f">Fotos (cartão de visita, catálogo, produto)</label>
+    <div class="thumbs" id="thumbs"></div>
+    <label class="btn sec block" style="margin-top:8px">📷 Adicionar foto<input type="file" accept="image/*" capture="environment" hidden onchange="addPhoto('${eid}', this)"></label>
+  </div>`;
+}
+// Edits are batched per entity so typing in several fields quickly never drops one; flushed on timer, navigation and app hide.
+const pending = { eid: null, patch: {} };
+function flushNotes() {
+  clearTimeout(flushNotes.h);
+  if (!pending.eid || !Object.keys(pending.patch).length) return;
+  setNote(pending.eid, pending.patch); pending.patch = {};
+  const s = $('#saved'); if (s) s.textContent = 'Salvo ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+window.addEventListener('pagehide', flushNotes);
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushNotes(); });
+function bindNotes(eid) {
+  document.querySelectorAll('[data-k]').forEach((el) => {
+    el.addEventListener('input', () => {
+      if (pending.eid !== eid) { flushNotes(); pending.eid = eid; }
+      pending.patch[el.dataset.k] = el.value;
+      clearTimeout(flushNotes.h); flushNotes.h = setTimeout(flushNotes, 400);
+    });
+    el.addEventListener('blur', flushNotes);
+  });
+  renderThumbs(eid);
+}
+async function renderThumbs(eid) {
+  const box = $('#thumbs'); if (!box) return;
+  const ps = await photosFor(eid);
+  box.innerHTML = ps.map((p) => `<figure><img src="${URL.createObjectURL(p.blob)}" onclick="sharePhoto('${p.id}')"><button onclick="rmPhoto('${eid}','${p.id}')" aria-label="Apagar">×</button></figure>`).join('');
+}
+window.addPhoto = async (eid, input) => {
+  const f = input.files[0]; if (!f) return;
+  const blob = await shrink(f);
+  await putPhoto({ id: eid + '-' + Date.now(), eid, blob, ts: Date.now(), by: S.user });
+  if (!noteOf(eid).updatedAt) setNote(eid, {});
+  toast('Foto salva'); renderThumbs(eid);
+};
+window.rmPhoto = async (eid, id) => { if (confirm('Apagar esta foto?')) { await delPhoto(id); renderThumbs(eid); } };
+window.sharePhoto = async (id) => {
+  const p = (await allPhotos()).find((x) => x.id === id); if (!p) return;
+  const file = new File([p.blob], id + '.jpg', { type: 'image/jpeg' });
+  if (navigator.canShare?.({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
+  else window.open(URL.createObjectURL(p.blob));
+};
+window.setNote = setNote;
+window.setStatus = (eid, k) => {
+  setNote(eid, { status: k, visitedAt: k === 'visitado' ? Date.now() : noteOf(eid).visitedAt });
+  const e = entity(eid);
+  if (k === 'visitado' && parseStand(e.stand)) { S.here = { stand: e.stand, label: e.title }; save(HERE_KEY, S.here); toast('Localização atualizada para ' + e.stand); }
+  render();
+};
+window.addEntity = (eid) => { if (!S.added.includes(eid)) { S.added.push(eid); save(ADDED_KEY, S.added); } toast('Adicionada à sua lista'); render(); };
+window.removeAdded = (eid) => {
+  if (S.notes[eid] && Object.keys(S.notes[eid]).some((k) => !['by', 'updatedAt', 'priority'].includes(k) && S.notes[eid][k]) && !confirm('Esta empresa tem anotações. Remover da lista mesmo assim? (as anotações continuam salvas)')) return;
+  S.added = S.added.filter((x) => x !== eid); save(ADDED_KEY, S.added); render();
+};
+
+function viewRota(eid) {
+  const e = entity(eid); if (!e) return;
+  const from = S.here?.stand, d = directions(from, e.stand), b = parseStand(e.stand), a = parseStand(from);
+  const neighbours = S.plan.visits.filter((v) => v.kind === 'empresa' && v.id !== eid && parseStand(v.stand)?.hall === b?.hall)
+    .map((v) => ({ stand: v.stand, color: PRIO_COLOR[v.priority], r: 4, href: '#/e/' + v.id }));
+  shell('Como chegar', `
+    ${hereBar()}
+    <div class="card"><div class="row"><b class="grow">${esc(e.title)}</b><span class="stand" style="font-size:16px">${esc(e.stand)}</span></div>
+      ${d.mins ? `<div class="muted small">≈ ${d.mins} min a pé (estimativa)</div>` : ''}
+      <ol class="steps" style="margin-top:10px">${d.steps.map((s) => `<li>${s}</li>`).join('')}</ol></div>
+    ${b ? `<div class="card"><h3>Planta geral — Área A</h3>${overviewMap([{ hall: b.hall, color: '#e8590c', label: b.hall }], a?.hall)}</div>
+    <div class="card"><h3>Dentro do Hall ${esc(b.hall)}</h3>${hallSvg(b.hall, [...neighbours, { stand: e.stand, color: '#e8590c', r: 8, label: e.stand }], a?.hall === b.hall ? from : null)}${hallPhotoBox(b.hall)}</div>` : ''}
+    <div class="btns"><a class="btn sec" href="#/e/${eid}">Abrir ficha</a><button class="btn" onclick="setStatus('${eid}','visitado');location.hash='#/e/${eid}'">Cheguei ✓</button></div>
+  `, { back: true });
+  if (b) renderHallPhoto(b.hall);
+}
+function hallPhotoBox(hall) {
+  return `<div id="hallphoto" style="margin-top:10px"></div>
+    <label class="btn sec block" style="margin-top:8px">📷 Fotografar a planta real do Hall ${esc(hall)}<input type="file" accept="image/*" capture="environment" hidden onchange="addHallPhoto('${hall}', this)"></label>`;
+}
+async function renderHallPhoto(hall) {
+  const box = $('#hallphoto'); if (!box) return;
+  const ps = (await photosFor('hall-' + hall)).sort((a, b) => b.ts - a.ts);
+  box.innerHTML = ps.length ? `<img src="${URL.createObjectURL(ps[0].blob)}" style="width:100%;border-radius:10px" onclick="sharePhoto('${ps[0].id}')"><div class="muted small">Sua foto da planta do hall (toque para ampliar/compartilhar)</div>` : '';
+}
+window.addHallPhoto = async (hall, input) => { const f = input.files[0]; if (!f) return; await putPhoto({ id: 'hall-' + hall + '-' + Date.now(), eid: 'hall-' + hall, blob: await shrink(f, 2400), ts: Date.now() }); renderHallPhoto(hall); toast('Planta salva'); };
+
+function viewMapa(hall) {
+  const ents = [...S.plan.visits.filter((v) => v.kind === 'empresa').map((v) => entity(v.id)), ...S.added.map(entity).filter(Boolean)];
+  const byHall = {};
+  ents.forEach((e) => { const p = parseStand(e.stand); if (p) (byHall[p.hall] = byHall[p.hall] || []).push(e); });
+  if (hall) {
+    const list = (byHall[hall] || []).sort((a, b) => a.stand.localeCompare(b.stand));
+    shell('Hall ' + hall, `
+      <div class="card">${hallSvg(hall, list.map((e) => ({ stand: e.stand, color: statusOf(e.eid) === 'visitado' ? '#12b76a' : PRIO_COLOR[e.priority] || '#98a2b3', r: 6, label: e.stand.slice(3), href: '#/e/' + e.eid })), parseStand(S.here?.stand)?.hall === hall ? S.here.stand : null)}${hallPhotoBox(hall)}</div>
+      <div class="list">${list.map((e) => itemRow(e)).join('') || '<div class="empty">Nenhuma empresa da sua lista neste hall.</div>'}</div>
+      <button class="btn sec block" onclick="UI.ch='${hall}';UI.cq=UI.cz=UI.cc='';saveUI();location.hash='#/catalogo'">Ver todos os expositores do Hall ${hall}</button>`, { back: true });
+    renderHallPhoto(hall); return;
+  }
+  const halls = Object.keys(HALLS).filter((h) => h !== '5.1');
+  shell('Mapa da feira', `
+    ${hereBar()}
+    <div class="card">${overviewMap(Object.entries(byHall).map(([h, l]) => ({ hall: h, color: '#e8590c', label: String(l.filter((e) => statusOf(e.eid) !== 'visitado').length) })), parseStand(S.here?.stand)?.hall)}
+      <p class="muted small" style="margin:8px 0 0">Números em laranja = empresas da sua lista ainda não visitadas em cada hall. Halls x.1 = térreo (1/F), x.2 = piso superior (2/F); todos ligados pelo Pearl River Promenade (L/F). Hall 5.1 é da SFCHINA.</p></div>
+    <div class="list">${halls.map((h) => { const l = byHall[h] || [];
+      return `<a class="item" href="#/hall/${h}"><b class="stand">${h}</b><div class="grow"><div class="t">Hall ${h}</div><div class="s">${l.length ? l.map((e) => e.title).join(', ') : 'Nenhuma da sua lista'}</div></div><span class="muted">${l.length || ''} ›</span></a>`; }).join('')}</div>
+    <a class="card" href="#/mostrar/venue" style="display:block;color:inherit;text-decoration:none"><b>🚕 Endereço para o taxista</b><div class="muted small">${VENUE_CN}</div></a>
+  `);
+}
+
+function viewMostrar(eid) {
+  if (eid === 'venue') {
+    shell('Endereço', `<div class="card"><div class="big-cn">请带我去<br>${VENUE_CN}</div><p class="muted" style="text-align:center">“Por favor, leve-me ao Complexo da Canton Fair, Área A — No. 380 Yuejiang Zhong Road, Haizhu, Guangzhou”</p></div>`, { back: true });
+    return;
+  }
+  const e = entity(eid);
+  const cn = (e.abbr.match(/[㐀-鿿]+/g) || []).join('');
+  shell('Mostrar', `<div class="card"><p class="muted" style="text-align:center;margin-top:0">Mostre esta tela para pedir informação</p>
+    <div class="big-cn">${esc(cn || e.title)}</div><div style="text-align:center;font-size:20px;margin:8px 0">${esc(e.name)}</div>
+    <div class="big-cn" style="font-family:ui-monospace,Menlo,monospace">${esc(e.stand)}</div>
+    <div class="big-cn" style="font-size:22px;margin-top:10px">请问这个展位在哪里？</div><p class="muted" style="text-align:center">“Onde fica este estande?”</p></div>`, { back: true });
+}
+
+function viewMais() {
+  const blocks = {};
+  S.plan.checklist.forEach((c) => (blocks[c.block] = blocks[c.block] || []).push(c));
+  const nNotes = Object.keys(S.notes).length;
+  shell('Mais', `
+    <div class="card"><h2>Exportar para Excel</h2>
+      <p class="muted small" style="margin-top:0">Gera uma planilha com todas as empresas (planejadas + adicionadas), dados de contato, observações e status. ${nNotes} fichas com anotações neste aparelho.</p>
+      <button class="btn block" onclick="exportXlsx()">Exportar Excel (.xlsx)</button></div>
+    <div class="card"><h2>Juntar anotações com o outro celular</h2>
+      <p class="muted small" style="margin-top:0">Cada celular guarda suas próprias anotações. Para juntar: em um celular toque em “Enviar minhas anotações” e mande o arquivo pelo WhatsApp/AirDrop; no outro, toque em “Importar” e escolha o arquivo. Nada se perde: textos diferentes são combinados.</p>
+      <div class="btns"><button class="btn" onclick="exportSync()">Enviar minhas anotações</button>
+      <label class="btn sec">Importar<input type="file" accept=".json,application/json" hidden onchange="importSync(this)"></label></div></div>
+    <div class="card"><h2>Feira</h2><dl class="kv">
+      <dt>Datas</dt><dd>11–13 nov 2026</dd><dt>Horário</dt><dd>11–12/11: 09:00–17:00<br>13/11: 09:00–14:00</dd>
+      <dt>Local</dt><dd>China Import & Export Fair Complex, Área A — Guangzhou</dd><dt>Metrô</dt><dd>Linha 8: Xingang Dong (saída A) ou Pazhou (saída A)</dd></dl>
+      <a class="btn sec block" style="margin-top:10px" href="#/mostrar/venue">Mostrar endereço em chinês</a></div>
+    <details class="card"><summary>Checklist de perguntas (${S.plan.checklist.length})</summary>
+      ${Object.entries(blocks).map(([b, qs]) => `<h3 style="margin-top:14px">${esc(b)}</h3>${qs.map((q) => `<div style="margin:6px 0"><div>${esc(q.q)}</div><div class="muted small">${esc(q.why)}${q.ask ? ' · Pedir: ' + esc(q.ask) : ''}</div></div>`).join('')}`).join('')}</details>
+    <details class="card"><summary>Projetos / demandas (${S.plan.demands.length})</summary>
+      ${S.plan.demands.map((d) => `<div style="margin:12px 0"><b>${esc(d.name)}</b> <span class="muted small">${esc(d.substrate)}</span><div class="small">${esc(d.goal)}</div><div class="muted small">Matérias-primas: ${esc(d.materials)}</div></div>`).join('')}</details>
+    <div class="card"><h2>Este aparelho</h2>
+      <label class="f">Seu nome</label><input value="${esc(S.user)}" onchange="S.user=this.value.trim()||S.user;save(USER_KEY,S.user);toast('Nome atualizado')">
+      <p class="muted small">Dica: use sempre pelo ícone na tela de início — o Safari e o app instalado guardam dados separados. Faça “Exportar Excel” ao fim de cada dia como backup.</p>
+      <button class="btn warn block" onclick="wipe()">Apagar todos os dados deste aparelho</button></div>
+  `);
+}
+window.save = save; window.toast = toast; window.S = S;
+window.wipe = async () => {
+  if (!confirm('Apagar TODAS as anotações e fotos deste celular? Exporte o Excel antes.')) return;
+  if (prompt('Digite APAGAR para confirmar') !== 'APAGAR') return;
+  [NOTES_KEY, ADDED_KEY, HERE_KEY, 'cc_ui'].forEach((k) => localStorage.removeItem(k));
+  const db = await idb(); db.transaction('photos', 'readwrite').objectStore('photos').clear();
+  location.reload();
+};
+
+// ---------- export / sync ----------
+async function shareFile(blob, name, type) {
+  const file = new File([blob], name, { type });
+  if (navigator.canShare?.({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); return; } catch (e) { if (e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+}
+const stamp = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/^(\d{8})/, '$1-');
+window.exportXlsx = async () => {
+  if (!window.XLSX) return toast('Biblioteca do Excel ainda carregando…');
+  const photos = await allPhotos();
+  const pc = {}; photos.forEach((p) => (pc[p.eid] = (pc[p.eid] || 0) + 1));
+  const ids = [...S.plan.visits.filter((v) => v.kind !== 'tarefa').map((v) => v.id), ...S.added, ...Object.keys(S.notes).filter((k) => k.startsWith('c') && !S.added.includes(k))];
+  const stLabel = (s) => (STATUSES.find((x) => x[0] === (s || '')) || STATUSES[0])[1];
+  const rows = ids.map((eid) => {
+    const e = entity(eid); if (!e) return null; const n = noteOf(eid);
+    return {
+      'Origem': e.planned ? (e.kind === 'busca' ? 'Busca em aberto' : 'Planejada') : 'Adicionada (catálogo)',
+      'Empresa': e.title, 'Razão social': e.name, 'Nome chinês': e.abbr, 'País': e.country, 'Hall': e.hall, 'Stand': e.stand,
+      'Prioridade': n.priority || e.priority, 'Dia planejado': e.day || '', 'Objetivo': n.objective || e.objective || '',
+      'Matéria-prima alvo': e.material || '', 'Pergunta-chave': e.question || '', 'Status': stLabel(n.status),
+      'Visitado em': n.visitedAt ? new Date(n.visitedAt).toLocaleString('pt-BR') : '', 'Atendido por': n.contact || '', 'Cargo': n.role || '',
+      'E-mail': n.email || '', 'WhatsApp': n.whatsapp || '', 'WeChat': n.wechat || '', 'Observações / pontos tratados': n.obs || '',
+      'Amostras / documentos': n.samples || '', 'Próximos passos': n.next || '', 'Interesse (1-5)': n.score || '', 'Fotos no celular': pc[eid] || '',
+      'Anotado por': n.by || '', 'Última edição': n.updatedAt ? new Date(n.updatedAt).toLocaleString('pt-BR') : ''
+    };
+  }).filter(Boolean);
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Object.keys(rows[0]).map((k) => ({ wch: /Observ|Pergunta|Objetivo|Matéria/.test(k) ? 50 : /Razão/.test(k) ? 36 : 16 }));
+  ws['!autofilter'] = { ref: ws['!ref'] };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Visitas CHINACOAT');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await shareFile(new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `CHINACOAT_anotacoes_${S.user}_${stamp()}.xlsx`, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+};
+window.exportSync = async () => {
+  const data = { app: 'chinacoat', v: 1, from: S.user, at: Date.now(), notes: S.notes, added: S.added };
+  await shareFile(new Blob([JSON.stringify(data)], { type: 'application/json' }), `CHINACOAT_sync_${S.user}_${stamp()}.json`, 'application/json');
+};
+const STATUS_RANK = { '': 0, nao: 1, retornar: 2, visitado: 3 };
+function mergeText(a, b, who) {
+  a = a || ''; b = b || '';
+  if (!b || a === b || a.includes(b)) return a;
+  if (!a || b.includes(a)) return b;
+  return `${a}\n— ${who}: ${b}`;
+}
+window.importSync = async (input) => {
+  const f = input.files[0]; if (!f) return;
+  let d; try { d = JSON.parse(await f.text()); } catch { return toast('Arquivo inválido'); }
+  if (d.app !== 'chinacoat') return toast('Arquivo não é do app CHINACOAT');
+  let changed = 0;
+  for (const [eid, r] of Object.entries(d.notes || {})) {
+    const l = S.notes[eid];
+    if (!l) { S.notes[eid] = r; changed++; continue; }
+    const m = { ...l };
+    for (const k of ['contact', 'role', 'email', 'whatsapp', 'wechat', 'obs', 'samples', 'next', 'objective']) m[k] = mergeText(l[k], r[k], r.by || d.from);
+    if ((STATUS_RANK[r.status || ''] || 0) > (STATUS_RANK[l.status || ''] || 0)) { m.status = r.status; m.visitedAt = r.visitedAt; }
+    m.score = Math.max(l.score || 0, r.score || 0) || '';
+    if (!l.priority && r.priority) m.priority = r.priority;
+    if (JSON.stringify(m) !== JSON.stringify(l)) { m.updatedAt = Math.max(l.updatedAt || 0, r.updatedAt || 0); m.by = l.by === r.by ? l.by : `${l.by || ''} + ${r.by || ''}`; S.notes[eid] = m; changed++; }
+  }
+  (d.added || []).forEach((x) => { if (!S.added.includes(x)) { S.added.push(x); changed++; } });
+  save(NOTES_KEY, S.notes); save(ADDED_KEY, S.added);
+  toast(`Importado de ${d.from || '?'}: ${changed} alterações`); input.value = ''; render();
+};
+
+// ---------- router ----------
+function parseRoute() {
+  const [, name = 'roteiro', arg = null] = location.hash.split('/');
+  route = { name, arg: arg && decodeURIComponent(arg) };
+}
+function render() {
+  flushNotes();
+  parseRoute();
+  const r = route;
+  if (r.name === 'e') return viewEntity(r.arg);
+  if (r.name === 'rota') return viewRota(r.arg);
+  if (r.name === 'hall') return viewMapa(r.arg);
+  if (r.name === 'mostrar') return viewMostrar(r.arg);
+  if (r.name === 'empresas') return viewEmpresas();
+  if (r.name === 'catalogo') return viewCatalogo();
+  if (r.name === 'mapa') return viewMapa();
+  if (r.name === 'mais') return viewMais();
+  route.name = 'roteiro'; return viewRoteiro();
+}
+window.render = render; window.UI = UI; window.saveUI = saveUI;
+window.addEventListener('hashchange', render);
+
+async function boot() {
+  try { S.catalog = await (await fetch('data/catalog.json')).json(); } catch { S.catalog = []; toast('Catálogo indisponível offline — abra uma vez com internet'); }
+  S.catById = new Map(S.catalog.map((r) => [r[0], r]));
+  hallShape.clear();
+  for (const r of S.catalog) { const p = parseStand(r[6]); if (!p) continue; const h = hallShape.get(p.hall) || { aisles: [], max: 0 }; if (!h.aisles.includes(p.aisle)) h.aisles.push(p.aisle); h.max = Math.max(h.max, p.num); hallShape.set(p.hall, h); }
+  hallShape.forEach((h) => h.aisles.sort());
+  plannedFor.clear(); S.plan.visits.forEach((v) => v.catId && plannedFor.set(v.catId, v.id));
+  render();
+  navigator.storage?.persist?.();
+}
+(function start() {
+  S.user = load(USER_KEY, ''); S.notes = load(NOTES_KEY, {}); S.added = load(ADDED_KEY, []); S.here = load(HERE_KEY, null);
+  S.plan = load(PASS_KEY, null);
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (S.plan && S.user) boot(); else renderGate();
+})();
+</script>
+</body>
+</html>

@@ -103,6 +103,21 @@ details.card summary { font-weight: 600; cursor: pointer; }
 .warnbox { background: #fffaeb; color: #7a2e0e; border-radius: 10px; padding: 8px 10px; font-size: 13px; margin-top: 8px; }
 @media (prefers-color-scheme: dark) { .warnbox { background: #3d2a0a; color: #fec84b; } }
 .hallsvg text { font: 600 9px -apple-system, sans-serif; fill: var(--muted); }
+.pill.dist { background: #7a5af8; }
+.card.distcard { border-left: 4px solid #7a5af8; }
+.mat { border-top: 1px solid var(--line); padding: 12px 0 4px; }
+.mat:first-of-type { border-top: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+.grid2 label.f { margin-top: 8px; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0 2px; }
+.stats div { background: var(--chip); border-radius: 10px; padding: 6px 8px; font-size: 12px; color: var(--muted); }
+.stats b { display: block; font-size: 15px; color: var(--ink); }
+.calc { background: #f4f3ff; color: #3e1c96; border-radius: 10px; padding: 8px 10px; font-size: 14px; margin-top: 8px; }
+@media (prefers-color-scheme: dark) { .calc { background: #27115f; color: #d9d6fe; } }
+.subj { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.subj span { font-size: 12px; border-radius: 8px; padding: 4px 6px; background: var(--chip); color: var(--muted); text-align: center; }
+.subj span.y { background: #d1fadf; color: #05603a; } .subj span.d { background: #fef0c7; color: #93370d; }
+@media (prefers-color-scheme: dark) { .subj span.y { background: #05603a; color: #d1fadf; } .subj span.d { background: #93370d; color: #fef0c7; } }
 </style>
 </head>
 <body>
@@ -113,6 +128,7 @@ details.card summary { font-weight: 600; cursor: pointer; }
 'use strict';
 // ---------- constants ----------
 const PASS_KEY = 'cc_plan', NOTES_KEY = 'cc_notes', ADDED_KEY = 'cc_added', USER_KEY = 'cc_user', HERE_KEY = 'cc_here';
+const DIST_KEY = 'cc_dist', DIST_ADDED_KEY = 'cc_dist_added', DIST_CFG_KEY = 'cc_dist_cfg';
 const STATUSES = [['', 'Pendente'], ['visitado', 'Visitado'], ['retornar', 'Retornar'], ['nao', 'Não encontrado / fechado']];
 const PRIOS = ['Crítica', 'Alta', 'Média', 'Baixa'];
 const PRIO_RANK = { 'Crítica': 0, 'Alta': 1, 'Média': 2, 'Baixa': 3 };
@@ -140,7 +156,7 @@ const HALLS = {
 const VENUE_CN = '广州市海珠区阅江中路380号 中国进出口商品交易会展馆 A区';
 
 // ---------- state ----------
-const S = { plan: null, catalog: [], catById: new Map(), notes: {}, added: [], user: '', here: null };
+const S = { plan: null, catalog: [], catById: new Map(), notes: {}, added: [], user: '', here: null, dist: null, distAdded: [], distCfg: {} };
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const load = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
@@ -179,8 +195,14 @@ async function shrink(file, max = 1600) {
 
 // ---------- crypto gate ----------
 const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
-async function decryptPlan(pass) {
-  const enc = await (await fetch('data/plan.enc.json')).json();
+const decryptPlan = (pass) => decryptFile('data/plan.enc.json', pass);
+// Distribution data (our purchase prices) is encrypted with the same password; see tools/encrypt_dist.py.
+async function unlockDist(pass) {
+  S.dist = await decryptFile('data/dist.enc.json', pass);
+  save(DIST_KEY, S.dist); rebuildDist();
+}
+async function decryptFile(url, pass) {
+  const enc = await (await fetch(url, { cache: 'no-store' })).json();
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
   const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: b64(enc.salt), iterations: enc.iter, hash: 'SHA-256' }, base,
     { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
@@ -206,6 +228,7 @@ function renderGate(err) {
     try {
       S.plan = await decryptPlan(pass);
       S.user = user; save(USER_KEY, user); save(PASS_KEY, S.plan);
+      await unlockDist(pass).catch(() => {});
       boot();
     } catch { renderGate('Senha incorreta (ou sem conexão na primeira abertura).'); }
   };
@@ -227,9 +250,11 @@ function entity(eid) {
   const c = catRow(eid.slice(1)); if (!c) return null;
   const n = S.notes[eid] || {};
   const short = c.abbr.replace(/[㐀-鿿＀-￯（）]+/g, '').trim();
+  const db = S.dist ? distBase.get(eid) : null;
   return { eid, planned: false, kind: 'empresa', title: short || c.name, name: c.name, abbr: c.abbr, country: c.country, hall: c.hall, stand: c.stand,
-    zone: c.zone, cats: c.cats, priority: n.priority || c.focus?.p || 'Média', objective: c.focus ? c.focus.f : '', material: '', question: c.focus ? c.focus.a : '',
-    focus: c.focus, isNew: c.isNew };
+    zone: c.zone, cats: c.cats, priority: n.priority || db?.prio || c.focus?.p || 'Média', material: '', question: c.focus ? c.focus.a : '',
+    objective: n.objective || db?.short || (c.focus ? c.focus.f : '') || (S.distAdded.includes(eid) ? distMats(eid).map((x) => S.dist.materials[x]?.nome).filter(Boolean).join(', ') : ''),
+    focus: c.focus, isNew: c.isNew, order: db?.order ?? 999 };
 }
 const plannedFor = new Map(); // catalog id -> planned eid
 function noteOf(eid) { return S.notes[eid] || {}; }
@@ -241,6 +266,149 @@ function setNote(eid, patch) {
 function statusOf(eid) { return noteOf(eid).status || ''; }
 function statusChip(eid) { const s = statusOf(eid); if (!s) return ''; const l = STATUSES.find((x) => x[0] === s)[1]; return `<span class="st st-${s}">${esc(l.split(' /')[0])}</span>`; }
 const prioPill = (p) => p ? `<span class="pill p-${esc(p)}">${esc(p)}</span>` : '';
+
+// ---------- distribuição (fabricantes para contratipo e parceria no Brasil) ----------
+const SUBJECTS = ['RESINA', 'MONÔMEROS', 'ADITIVOS', 'PEROLADO', 'SÍLICAS', 'CORANTES'];
+// 13/11 is the free day: distribution companies not already planned go there, and nothing else from the plan is shown on it.
+const FREE_DAY = '13/11';
+const DIST_DAYS = [['11/11', '11/11'], ['12/11', '12/11'], ['13/11', '13/11']];
+// Conservative landed-cost assumptions; editable in Mais › Distribuição. Quotes at the fair are expected EXW.
+const DIST_CFG0 = { fx: 5.40, iof: 0.38, origem: 0.20, frete: 0.60, seg: 0.5, ii: 12, afrmm: 8, desp: 8, interno: 0.60, nr: 0 };
+const CFG_FIELDS = [['fx', 'Câmbio R$/US$ (com spread do banco)'], ['iof', 'IOF e tarifas do câmbio (%)'],
+  ['origem', 'Custos na China EXW → porto (US$/kg: coleta na fábrica, desembaraço de exportação, THC de origem)'],
+  ['frete', 'Frete marítimo LCL China → Brasil (US$/kg, com consolidação)'], ['seg', 'Seguro internacional (% sobre preço + origem + frete)'],
+  ['ii', 'Imposto de importação padrão (% sobre CIF)'], ['afrmm', 'AFRMM (% sobre o frete marítimo)'],
+  ['desp', 'Despesas no Brasil (% do CIF: THC destino, desconsolidação, armazenagem, despachante, Siscomex)'],
+  ['interno', 'Frete porto → fábrica (R$/kg)'], ['nr', 'Impostos não recuperáveis (% sobre CIF + II; 0 = ICMS/IPI/PIS/COFINS creditados)']];
+const cfg = () => ({ ...DIST_CFG0, ...S.distCfg });
+const distBase = new Map(); // eid -> company from the dist file (planned eid when the company is already in the plan)
+// A planned visit may point at a booth-mate's catalog id (e.g. "Silica / Subi(PP7)" at 2.1G13), so also match by stand + short name.
+function plannedEidFor(cat) {
+  if (plannedFor.has(cat)) return plannedFor.get(cat);
+  const r = catRow(cat); if (!r) return null;
+  const short = r.abbr.replace(/[㐀-鿿＀-￯（）]+/g, '').trim().toLowerCase();
+  const v = short && S.plan.visits.find((x) => x.kind === 'empresa' && x.stand === r.stand && x.name.toLowerCase().includes(short));
+  return v ? v.id : null;
+}
+function rebuildDist() { distBase.clear(); (S.dist?.companies || []).forEach((c) => distBase.set(plannedEidFor(c.cat) || 'c' + c.cat, c)); }
+const isDist = (eid) => !!S.dist && (distBase.has(eid) || S.distAdded.includes(eid));
+const distEids = () => S.dist ? [...distBase.keys(), ...S.distAdded.filter((x) => !distBase.has(x))] : [];
+const distMats = (eid) => noteOf(eid).distMats || distBase.get(eid)?.mats || [];
+function distDay(eid) { const e = entity(eid); if (e?.planned) return e.day; const d = noteOf(eid).distDay; return DIST_DAYS.some(([k]) => k === d) ? d : FREE_DAY; }
+const dayLabel = (d) => d;
+// Compact form in list rows so the company name keeps its room on a phone.
+const distBadge = (eid, short) => isDist(eid) ? `<span class="pill dist" title="Oportunidade: compra em grandes lotes / parceria de distribuição no Brasil">🤝${short ? '' : ' Distribuição'}</span>` : '';
+// Accepts "2,35", "2.35", "1.000" (pt-BR thousands) and "1.000,50".
+const num = (v) => {
+  let s = String(v ?? '').trim();
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const x = parseFloat(s); return Number.isFinite(x) ? x : null;
+};
+const brl = (v) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const intf = (v) => Math.round(v).toLocaleString('pt-BR');
+const incOf = (q) => q.inc === 'FOB' ? 'FOB' : 'EXW';
+// Landed cost per unit with every step itemised (US$ until CIF, then R$).
+function landed(q) {
+  const c = cfg(), price = num(q.fob); if (price == null) return null;
+  const origem = incOf(q) === 'EXW' ? (num(q.origem) ?? c.origem) : 0, fr = num(q.frete) ?? c.frete, ii = num(q.ii) ?? c.ii;
+  const fx = c.fx * (1 + c.iof / 100), segUsd = (price + origem + fr) * c.seg / 100;
+  const cif = (price + origem + fr + segUsd) * fx, iiv = cif * ii / 100;
+  const parts = [['Preço ' + incOf(q), price * fx], ['Custos na China até o porto', origem * fx], ['Frete marítimo', fr * fx], ['Seguro', segUsd * fx],
+    [`Imposto de importação (${ii}%)`, iiv], ['AFRMM', fr * fx * c.afrmm / 100], ['Despesas no Brasil (porto, despachante, Siscomex)', cif * c.desp / 100],
+    ['Impostos não recuperáveis', (cif + iiv) * c.nr / 100], ['Frete porto → fábrica', c.interno]];
+  return { total: parts.reduce((s, p) => s + p[1], 0), parts, fx };
+}
+function calcInfo(m, q) {
+  const x = landed(q || {}); if (!x) return null;
+  const L = x.total, diff = m.p3 ? (L / m.p3 - 1) * 100 : null, moq = num(q.moq);
+  return { L, x, diff, save: m.p3 && m.kg12 ? (m.p3 - L) * m.kg12 : null, moqMonths: moq && m.kg12 ? moq / m.kg12 * 12 : null };
+}
+function calcHtml(m, q) {
+  const r = calcInfo(m, q);
+  if (!r) return '<span class="small">Preencha o preço cotado para ver o custo nacionalizado.</span>';
+  const p = [`<b>R$ ${brl(r.L)}/${esc(m.un)}</b> nacionalizado`];
+  if (r.diff != null) p.push(`<b style="color:${r.diff < 0 ? 'var(--ok)' : 'var(--crit)'}">${r.diff > 0 ? '+' : ''}${r.diff.toFixed(0)}%</b> vs. hoje`);
+  if (r.save != null) p.push(r.save > 0 ? `economia ≈ R$ ${intf(r.save)}/ano` : `custaria R$ ${intf(-r.save)}/ano a mais`);
+  if (r.moqMonths != null) p.push(`MOQ = ${r.moqMonths.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} meses do nosso consumo`);
+  return p.join(' · ') + `<details style="margin-top:6px"><summary class="small">Composição do custo (R$/${esc(m.un)})</summary>
+    <dl class="kv small" style="grid-template-columns:1fr auto;margin-top:6px">${r.x.parts.filter((x) => x[1]).map(([l, v]) => `<dt>${esc(l)}</dt><dd>R$ ${brl(v)}</dd>`).join('')}
+    <dt><b>Total nacionalizado</b></dt><dd><b>R$ ${brl(r.L)}</b></dd></dl><div class="small" style="margin-top:4px">Câmbio efetivo R$ ${brl(r.x.fx)} (com IOF/tarifas).</div></details>`;
+}
+function matOptions(skip) {
+  const A = new Set(S.dist.priorityA), all = Object.values(S.dist.materials).filter((m) => !skip.includes(m.cod)).sort((a, b) => a.nome.localeCompare(b.nome));
+  const o = (m) => `<option value="${esc(m.cod)}">${esc(m.nome)} · ${esc(m.familia)}</option>`;
+  return `<option value="">+ Adicionar matéria-prima…</option><optgroup label="Fase 1 — prioridade A">${all.filter((m) => A.has(m.cod)).map(o).join('')}</optgroup>
+    <optgroup label="Outras compras (12 meses)">${all.filter((m) => !A.has(m.cod)).map(o).join('')}</optgroup>`;
+}
+function distCard(eid) {
+  const e = entity(eid), base = distBase.get(eid), n = noteOf(eid), q = n.dist || {}, M = S.dist.materials;
+  const mats = distMats(eid).filter((c) => M[c]);
+  const day = distDay(eid);
+  return `<div class="card distcard" id="dist">
+    <div class="row"><h2 class="grow" style="margin:0">🤝 Distribuição no Brasil</h2>${base ? `<span class="st">${esc(base.group)}</span>` : '<span class="st">Incluída por você</span>'}</div>
+    <p class="small" style="margin:6px 0 0">${esc(base?.pitch || 'Abordar compra em grandes lotes e parceria de distribuição no Brasil.')}</p>
+    ${base ? `<div class="small" style="margin-top:6px">${prioPill(base.prio)} Prioridade nº <b>${base.order}</b> de ${S.dist.companies.length} · potencial ≈ <b>R$ ${intf(base.pot)}/ano</b> do nosso gasto${base.role === 'reserva' ? ' (reserva: conta pela metade)' : ''}</div>` : ''}
+    ${base ? `<h3>Assuntos (✓ confirmado · ○ só declarado na feira)</h3><div class="subj">${SUBJECTS.map((s) => { const v = base.subj[s] || ''; return `<span class="${v === '✓' ? 'y' : v ? 'd' : ''}">${v || '–'} ${s}</span>`; }).join('')}</div>` : ''}
+    <h3>Dia da visita</h3>
+    ${e.planned ? `<div class="small">Já está no roteiro: <b>${esc(e.day)}</b> ${esc(e.period || '')} — aproveite a visita para abordar a parceria.</div>`
+      : `<div class="seg">${DIST_DAYS.map(([k, l]) => `<button class="${day === k ? 'on' : ''}" onclick="setNote('${eid}',{distDay:'${k}'});render()">${l}</button>`).join('')}</div>`}
+    <h3>Matérias-primas que buscamos (${mats.length})</h3>
+    <p class="muted small" style="margin:0">Base: ${esc(S.dist.basis)}.</p>
+    ${mats.map((c) => { const m = M[c], v = q[c] || {}, c0 = cfg(); return `<div class="mat">
+      <div class="row"><b class="grow">${esc(m.nome)}</b><button class="chip" onclick="distRmMat('${eid}','${c}')" aria-label="Remover">×</button></div>
+      <div class="muted small">${esc(m.familia)} · cód. ${esc(m.cod)} · hoje: ${esc(m.forn)}</div>
+      <div class="stats"><div>Preço médio pago<b>${m.p3 != null ? 'R$ ' + brl(m.p3) : '—'}</b>${esc(m.p3b === 'ago–out/2026' ? 'por ' + m.un : m.p3b)}</div>
+        <div>Volume 12 meses<b>${intf(m.kg12)} ${esc(m.un)}</b></div><div>Gasto 12 meses<b>R$ ${intf(m.val12)}</b></div></div>
+      <div class="grid2">
+        <div><label class="f">Preço cotado (US$/${esc(m.un)})</label><input data-dk="${c}|fob" inputmode="decimal" value="${esc(v.fob || '')}" placeholder="0,00"></div>
+        <div><label class="f">Incoterm do preço</label><div class="seg">${['EXW', 'FOB'].map((k) => `<button class="${incOf(v) === k ? 'on' : ''}" onclick="distSetInc('${eid}','${c}','${k}')">${k}</button>`).join('')}</div></div>
+        <div><label class="f">MOQ (${esc(m.un)})</label><input data-dk="${c}|moq" inputmode="decimal" value="${esc(v.moq || '')}"></div>
+        <div><label class="f">Frete marítimo (US$/${esc(m.un)})</label><input data-dk="${c}|frete" inputmode="decimal" value="${esc(v.frete || '')}" placeholder="${brl(c0.frete)} (padrão)"></div>
+        ${incOf(v) === 'EXW' ? `<div><label class="f">China → porto (US$/${esc(m.un)})</label><input data-dk="${c}|origem" inputmode="decimal" value="${esc(v.origem || '')}" placeholder="${brl(c0.origem)} (padrão)"></div>` : ''}
+        <div><label class="f">Imposto de importação (%)</label><input data-dk="${c}|ii" inputmode="decimal" value="${esc(v.ii || '')}" placeholder="${c0.ii} (padrão)"></div>
+      </div>
+      <label class="f">Nome do contratipo / observação</label><input data-dk="${c}|obs" value="${esc(v.obs || '')}" placeholder="Ex.: LC-6210, lead time 30 dias, amostra 1 kg">
+      <div class="calc" id="calc-${c}">${calcHtml(m, v)}</div></div>`; }).join('') || '<div class="empty small">Nenhuma matéria-prima ainda.</div>'}
+    <select style="margin-top:10px" onchange="if(this.value)distAddMat('${eid}',this.value)">${matOptions(mats)}</select>
+    <h3>Condições da parceria</h3>
+    <label class="f">Exclusividade / território / volume mínimo anual</label><input data-k="distExcl" value="${esc(n.distExcl || '')}" placeholder="Ex.: exclusividade Sul com 20 t/ano">
+    <label class="f">Pagamento, Incoterm, lead time</label><input data-k="distTerms" value="${esc(n.distTerms || '')}" placeholder="Ex.: 30% antecipado, FOB Guangzhou, 25 dias">
+    <label class="f">Observações sobre distribuição</label><textarea data-k="distObs" style="min-height:80px">${esc(n.distObs || '')}</textarea>
+    <p class="muted small">Custo nacionalizado = preço EXW + custos na China até o porto + frete marítimo + seguro, no câmbio com IOF; + imposto de importação, AFRMM, despesas no Brasil e frete até a fábrica. Toque em “Composição do custo” para ver cada parcela. Premissas em <a href="#/mais">Mais › Distribuição</a> (câmbio ${brl(cfg().fx)}).</p>
+    ${S.distAdded.includes(eid) && !base ? `<button class="btn sec block" onclick="distRemove('${eid}')">Remover da distribuição</button>` : ''}
+  </div>`;
+}
+function bindDist(eid) {
+  document.querySelectorAll('[data-dk]').forEach((el) => {
+    el.addEventListener('input', () => {
+      const [c, f] = el.dataset.dk.split('|'), dist = { ...(noteOf(eid).dist || {}) };
+      dist[c] = { ...(dist[c] || {}), [f]: el.value, at: Date.now() };
+      flushNotes(); setNote(eid, { dist });
+      const box = document.getElementById('calc-' + c); if (box) box.innerHTML = calcHtml(S.dist.materials[c], dist[c]);
+      const s = $('#saved'); if (s) s.textContent = 'Salvo ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    });
+  });
+}
+function unlockCard() {
+  return `<div class="card distcard"><h2>🤝 Distribuição</h2>
+    <p class="small" style="margin-top:0">Os dados de distribuição (nossos preços e volumes) ficam protegidos com a mesma senha do roteiro. Digite a senha uma vez neste aparelho.</p>
+    <input id="d-pass" type="password" autocomplete="current-password" placeholder="Senha do roteiro">
+    <button class="btn block" style="margin-top:10px" onclick="doUnlockDist()">Liberar distribuição</button></div>`;
+}
+window.doUnlockDist = async () => {
+  try { await unlockDist($('#d-pass').value); toast('Distribuição liberada'); render(); }
+  catch { toast('Senha incorreta ou arquivo indisponível (abra com internet)'); }
+};
+window.distSetInc = (eid, c, k) => { flushNotes(); const dist = { ...(noteOf(eid).dist || {}) }; dist[c] = { ...(dist[c] || {}), inc: k, at: Date.now() }; setNote(eid, { dist }); render(); };
+window.distAddMat = (eid, c) => { flushNotes(); const l = distMats(eid); if (!l.includes(c)) setNote(eid, { distMats: [...l, c] }); render(); };
+window.distRmMat = (eid, c) => {
+  const v = noteOf(eid).dist?.[c];
+  if (v && (v.fob || v.moq || v.obs) && !confirm('Esta matéria-prima tem anotações. Remover mesmo assim? (os valores continuam salvos)')) return;
+  flushNotes(); setNote(eid, { distMats: distMats(eid).filter((x) => x !== c) }); render();
+};
+window.distInclude = (eid) => { if (!S.distAdded.includes(eid)) { S.distAdded.push(eid); save(DIST_ADDED_KEY, S.distAdded); } toast('Incluída na distribuição'); render(); setTimeout(() => $('#dist')?.scrollIntoView({ behavior: 'smooth' }), 50); };
+window.distRemove = (eid) => { if (!confirm('Remover esta empresa da distribuição? (as anotações continuam salvas)')) return; S.distAdded = S.distAdded.filter((x) => x !== eid); save(DIST_ADDED_KEY, S.distAdded); render(); };
+window.saveCfg = (k, v) => { const x = num(v); if (x == null) delete S.distCfg[k]; else S.distCfg[k] = x; save(DIST_CFG_KEY, S.distCfg); };
 
 // ---------- geometry & directions ----------
 function parseStand(s) { const m = /^(\d\.\d)([A-Z])(\d+)/.exec(s || ''); return m ? { hall: m[1], aisle: m[2], num: +m[3] } : null; }
@@ -352,26 +520,39 @@ window.setHerePrompt = () => {
 function itemRow(e, extra = '') {
   const pr = PRIO_COLOR[e.priority] || 'var(--low)';
   return `<a class="item" href="#/e/${e.eid}"><span class="dot" style="background:${pr}"></span>
-    <div class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc(e.objective || e.name)}</div></div>
-    ${extra}${statusChip(e.eid)}<span class="stand">${esc(parseStand(e.stand) ? e.stand : '—')}</span></a>`;
+    <div class="grow"><div class="t">${esc(e.title)}</div><div class="s">${esc([e.objective, isDist(e.eid) && e.eid.startsWith('p') ? distBase.get(e.eid)?.short : ''].filter(Boolean).join(' · ') || e.name)}</div></div>
+    ${extra}${distBadge(e.eid, true)}${statusChip(e.eid)}<span class="stand">${esc(parseStand(e.stand) ? e.stand : '—')}</span></a>`;
 }
 
 function viewRoteiro() {
-  const days = ['11/11', '12/11', '13/11', 'Todas'];
-  let list = S.plan.visits.filter((v) => v.kind !== 'busca').map((v) => entity(v.id));
-  if (UI.day !== 'Todas') list = list.filter((e) => e.day === UI.day);
+  const days = ['11/11', '12/11', '13/11', 'Distrib.', 'Todas'];
+  const isD = UI.day === 'Distrib.';
+  // Distribution companies outside the plan go to the day picked for them (13/11, the free day, by default),
+  // ordered by priority: covered spend first, then hall by hall.
+  const byDistOrder = (a, b) => (distBase.get(a.eid)?.order ?? 99) - (distBase.get(b.eid)?.order ?? 99);
+  const extraDist = distEids().filter((x) => !x.startsWith('p')).map(entity).filter(Boolean).sort(byDistOrder);
+  let list;
+  if (isD) list = distEids().map(entity).filter(Boolean).sort(byDistOrder);
+  else {
+    list = S.plan.visits.filter((v) => v.kind !== 'busca' && v.day !== FREE_DAY).map((v) => entity(v.id));
+    if (UI.day !== 'Todas') list = list.filter((e) => e.day === UI.day);
+    list.push(...extraDist.filter((e) => UI.day === 'Todas' || distDay(e.eid) === UI.day));
+  }
   const pending = list.filter((e) => !['visitado', 'nao'].includes(statusOf(e.eid)));
   const done = list.filter((e) => ['visitado', 'nao'].includes(statusOf(e.eid)));
   if (UI.sort === 'near') pending.sort((x, y) => cost(S.here?.stand, x.stand) - cost(S.here?.stand, y.stand) || PRIO_RANK[x.priority] - PRIO_RANK[y.priority]);
   else if (UI.sort === 'prio') pending.sort((x, y) => PRIO_RANK[x.priority] - PRIO_RANK[y.priority] || x.order - y.order);
   const iso = { '11/11': '2026-11-11', '12/11': '2026-11-12', '13/11': '2026-11-13' }[UI.day];
-  const ag = S.plan.agenda.filter((a) => UI.day === 'Todas' ? a.day.startsWith('Dia') : a.date === iso);
+  const ag = S.plan.agenda.filter((a) => a.date !== '2026-11-13' && (UI.day === 'Todas' ? a.day.startsWith('Dia') : a.date === iso));
   const next = pending.find((e) => parseStand(e.stand));
-  const added = S.added.map(entity).filter(Boolean).filter((e) => !['visitado', 'nao'].includes(statusOf(e.eid)));
+  const added = isD ? [] : S.added.filter((x) => !isDist(x)).map(entity).filter(Boolean).filter((e) => !['visitado', 'nao'].includes(statusOf(e.eid)));
+  const dayTag = (e) => isD ? `<span class="st">${esc(dayLabel(distDay(e.eid)))}</span>` : '';
   const total = S.plan.visits.filter((v) => v.kind === 'empresa').length, vis = S.plan.visits.filter((v) => v.kind === 'empresa' && statusOf(v.id) === 'visitado').length;
   shell('Roteiro CHINACOAT', `
     ${hereBar()}
-    <div class="seg" style="margin-bottom:10px">${days.map((d) => `<button class="${UI.day === d ? 'on' : ''}" onclick="UI.day='${d}';saveUI();render()">${d === 'Todas' ? 'Todos' : d}</button>`).join('')}</div>
+    <div class="seg" style="margin-bottom:10px">${days.map((d) => `<button class="${UI.day === d ? 'on' : ''}" onclick="UI.day='${d}';saveUI();render()">${d === 'Todas' ? 'Todos' : d === 'Distrib.' ? '🤝' : d}</button>`).join('')}</div>
+    ${isD ? (S.dist ? `<div class="card distcard small"><b>Fabricantes para distribuição (${list.length})</b><br>Contratipos das nossas matérias-primas, compra em grandes lotes e parceria no Brasil. Ordem = prioridade (quanto do nosso gasto o fabricante pode cobrir; reservas contam pela metade), depois hall a hall. Os que já estavam no roteiro mantêm o dia; os demais vão para <b>13/11</b> (até 14h — os de prioridade Baixa só se sobrar tempo). Dá para trocar o dia na ficha. Inclua outras empresas pelo Catálogo › ficha › “Incluir na distribuição”.</div>` : unlockCard()) : ''}
+    ${UI.day === FREE_DAY && S.dist ? `<div class="card distcard small"><b>13/11 — dia dos fabricantes para distribuição</b> (09:00–14:00). Siga a ordem: prioridade Crítica e Alta primeiro; Média e Baixa se sobrar tempo.</div>` : ''}
     <div class="row" style="margin-bottom:10px"><span class="muted small grow">${vis}/${total} empresas visitadas</span>
       <select style="width:auto;padding:6px 10px;font-size:14px" onchange="UI.sort=this.value;saveUI();render()">
         <option value="plan" ${UI.sort === 'plan' ? 'selected' : ''}>Ordem da planilha</option>
@@ -380,11 +561,11 @@ function viewRoteiro() {
     ${next ? `<a class="card" href="#/rota/${next.eid}" style="display:block;color:inherit;text-decoration:none;border-left:4px solid var(--accent)">
       <div class="muted small">PRÓXIMO</div><div class="row"><b class="grow">${esc(next.title)}</b><span class="stand">${esc(next.stand)}</span></div>
       <div class="small" style="margin-top:4px">Como chegar ›${S.here ? ` <span class="muted">~${directions(S.here.stand, next.stand).mins} min</span>` : ''}</div></a>` : ''}
-    ${pending.length ? `<div class="list">${pending.map((e) => itemRow(e)).join('')}</div>` : '<div class="empty">Tudo visitado neste dia 🎉</div>'}
+    ${pending.length ? `<div class="list">${pending.map((e) => itemRow(e, dayTag(e))).join('')}</div>` : isD && !S.dist ? '' : '<div class="empty">Tudo visitado neste dia 🎉</div>'}
     ${added.length ? `<h3 class="muted small" style="margin:16px 4px 6px">ADICIONADAS DO CATÁLOGO</h3><div class="list">${added.map((e) => itemRow(e)).join('')}</div>` : ''}
     ${ag.length ? `<details class="card"><summary>Agenda do dia (planilha 06)</summary>${ag.map((a) => `<div style="margin-top:10px"><div class="row"><b class="grow">${esc(a.slot)} · ${esc(a.who)}</b><span class="stand">${esc(a.hall)}</span></div>
       <div class="small">${esc(a.action)}</div><div class="small muted">Entrega: ${esc(a.deliver)} · ${esc(a.owner)}</div></div>`).join('')}</details>` : ''}
-    ${done.length ? `<h3 class="muted small" style="margin:16px 4px 6px">CONCLUÍDAS</h3><div class="list">${done.map((e) => itemRow(e)).join('')}</div>` : ''}
+    ${done.length ? `<h3 class="muted small" style="margin:16px 4px 6px">CONCLUÍDAS</h3><div class="list">${done.map((e) => itemRow(e, dayTag(e))).join('')}</div>` : ''}
   `);
 }
 
@@ -394,11 +575,14 @@ function viewEmpresas() {
   const pf = UI.pf;
   const planned = S.plan.visits.filter((v) => v.kind === 'empresa').map((v) => entity(v.id)).filter((e) => match(e) && (!pf || e.priority === pf))
     .sort((a, b) => PRIO_RANK[a.priority] - PRIO_RANK[b.priority] || a.order - b.order);
-  const added = S.added.map(entity).filter(Boolean).filter((e) => match(e) && (!pf || e.priority === pf));
+  const added = S.added.filter((x) => !isDist(x)).map(entity).filter(Boolean).filter((e) => match(e) && (!pf || e.priority === pf));
+  const dist = distEids().map(entity).filter(Boolean).filter((e) => match(e) && (!pf || e.priority === pf));
   const buscas = S.plan.visits.filter((v) => v.kind === 'busca').map((v) => entity(v.id)).filter(match);
   shell('Empresas', `
     <input type="search" placeholder="Buscar nome, stand, matéria-prima…" value="${esc(UI.eq)}" oninput="UI.eq=this.value;saveUI();debounce(render)" id="eq">
     <div class="chips" style="margin-top:10px">${['', ...PRIOS].map((p) => `<button class="chip ${pf === p ? 'on' : ''}" onclick="UI.pf='${p}';saveUI();render()">${p || 'Todas'}</button>`).join('')}</div>
+    ${S.dist ? `<h3 class="muted small" style="margin:6px 4px">🤝 DISTRIBUIÇÃO (${dist.length})</h3>
+    <div class="list">${dist.map((e) => itemRow(e, `<span class="st">${esc(dayLabel(distDay(e.eid)))}</span>`)).join('') || '<div class="empty small">Nada encontrado</div>'}</div>` : ''}
     <h3 class="muted small" style="margin:6px 4px">PLANEJADAS (${planned.length})</h3>
     <div class="list">${planned.map((e) => itemRow(e)).join('') || '<div class="empty">Nada encontrado</div>'}</div>
     <h3 class="muted small" style="margin:6px 4px">ADICIONADAS DO CATÁLOGO (${added.length})</h3>
@@ -432,7 +616,7 @@ function viewCatalogo() {
     <div class="row muted small" style="margin:0 4px 8px"><span class="grow">${rows.length} expositores</span>${(UI.cq || UI.ch || UI.cz || UI.cc) ? `<button class="chip" onclick="UI.cq=UI.ch=UI.cz=UI.cc='';saveUI();render()">Limpar filtros</button>` : ''}</div>
     <div class="list">${rows.slice(0, lim).map((r) => {
       const pe = plannedFor.get(r[0]), eid = pe || 'c' + r[0], isAdded = S.added.includes('c' + r[0]);
-      const tag = pe ? '<span class="pill p-Média">No roteiro</span>' : isAdded ? '<span class="pill" style="background:var(--ok)">Adicionada</span>' : r[9] ? `<span class="pill p-${esc(r[9].p)}" title="Triagem Corquímica">${esc(r[9].p)}</span>` : '';
+      const tag = distBadge(eid, true) + (pe ? '<span class="pill p-Média">No roteiro</span>' : isAdded ? '<span class="pill" style="background:var(--ok)">Adicionada</span>' : r[9] ? `<span class="pill p-${esc(r[9].p)}" title="Triagem Corquímica">${esc(r[9].p)}</span>` : '');
       return `<a class="item" href="#/e/${eid}"><div class="grow"><div class="t">${esc(r[1])}</div><div class="s">${esc(r[2])} · ${esc(r[3])}</div></div>${tag}${statusChip(eid)}<span class="stand">${esc(r[6])}</span></a>`;
     }).join('') || '<div class="empty">Nenhum expositor</div>'}</div>
     ${rows.length > lim ? `<button class="btn sec block" onclick="catLimit+=100;render()">Mostrar mais (${rows.length - lim})</button>` : ''}
@@ -459,7 +643,7 @@ async function viewEntity(eid) {
   }
   shell(e.title, `
     <div class="card">
-      <div class="row wrap" style="margin-bottom:6px">${prioPill(e.priority)}${statusChip(eid)}${e.isNew ? '<span class="st">Novo expositor</span>' : ''}</div>
+      <div class="row wrap" style="margin-bottom:6px">${prioPill(e.priority)}${distBadge(eid)}${statusChip(eid)}${e.isNew ? '<span class="st">Novo expositor</span>' : ''}</div>
       <h2 style="margin:4px 0">${esc(e.name)}</h2>
       ${e.abbr ? `<div class="muted">${esc(e.abbr)}</div>` : ''}
       <div class="row wrap" style="margin-top:10px">
@@ -488,9 +672,11 @@ async function viewEntity(eid) {
       <div class="row wrap" style="margin-top:10px;gap:6px">${e.cats.map((c) => `<span class="st">${esc(CAT_PT[c.slice(0, 6)] || c)}</span>`).join('')}</div>
     </div>`}
     ${e.planned && e.cats.length ? `<details class="card"><summary>Categorias no catálogo (${e.cats.length})</summary><div class="row wrap" style="margin-top:10px;gap:6px">${e.cats.map((c) => `<span class="st">${esc(CAT_PT[c.slice(0, 6)] || c)}</span>`).join('')}</div></details>` : ''}
+    ${isDist(eid) ? distCard(eid) : S.dist ? `<button class="btn sec block" style="margin-bottom:12px" onclick="distInclude('${eid}')">🤝 Incluir na distribuição</button>` : ''}
     ${notesForm(eid, n, e.planned ? 'Observações' : 'Principais pontos tratados')}
   `, { back: true });
   bindNotes(eid);
+  if (isDist(eid)) bindDist(eid);
 }
 function notesForm(eid, n, obsLabel) {
   return `<div class="card" id="notes">
@@ -593,7 +779,8 @@ async function renderHallPhoto(hall) {
 window.addHallPhoto = async (hall, input) => { const f = input.files[0]; if (!f) return; await putPhoto({ id: 'hall-' + hall + '-' + Date.now(), eid: 'hall-' + hall, blob: await shrink(f, 2400), ts: Date.now() }); renderHallPhoto(hall); toast('Planta salva'); };
 
 function viewMapa(hall) {
-  const ents = [...S.plan.visits.filter((v) => v.kind === 'empresa').map((v) => entity(v.id)), ...S.added.map(entity).filter(Boolean)];
+  const eids = [...new Set([...S.plan.visits.filter((v) => v.kind === 'empresa').map((v) => v.id), ...S.added, ...distEids()])];
+  const ents = eids.map(entity).filter(Boolean);
   const byHall = {};
   ents.forEach((e) => { const p = parseStand(e.stand); if (p) (byHall[p.hall] = byHall[p.hall] || []).push(e); });
   if (hall) {
@@ -632,7 +819,15 @@ function viewMais() {
   const blocks = {};
   S.plan.checklist.forEach((c) => (blocks[c.block] = blocks[c.block] || []).push(c));
   const nNotes = Object.keys(S.notes).length;
+  const c0 = cfg();
   shell('Mais', `
+    ${S.dist ? `<div class="card distcard" id="cfg"><h2>🤝 Distribuição</h2>
+      <p class="muted small" style="margin-top:0">${distEids().length} fabricantes · base de preços: ${esc(S.dist.basis)}.</p>
+      <button class="btn block" onclick="exportDist()">Exportar distribuição (.xlsx)</button>
+      <p class="muted small">Planilha separada: uma linha por fabricante × matéria-prima, com preço pago hoje, cotação, MOQ, frete e custo nacionalizado; e uma aba com as condições de parceria e contatos.</p>
+      <details><summary class="small" style="font-weight:600">Premissas do custo nacionalizado (cenário conservador)</summary>
+        ${CFG_FIELDS.map(([k, l]) => `<label class="f">${esc(l)}</label><input inputmode="decimal" value="${esc(String(S.distCfg[k] ?? '').replace('.', ','))}" placeholder="${String(DIST_CFG0[k]).replace('.', ',')}" onchange="saveCfg('${k}',this.value)">`).join('')}
+        <p class="muted small">Campos vazios usam o valor padrão. Frete e imposto de importação também podem ser ajustados item a item na ficha. Com os padrões, US$ 1,00/kg EXW vira ≈ R$ ${brl(landed({ fob: 1 }).total)}/kg nacionalizado. ICMS, IPI, PIS e COFINS de importação entram como crédito; se a empresa não for creditar, preencha “Impostos não recuperáveis”.</p></details></div>` : unlockCard()}
     <div class="card"><h2>Exportar</h2>
       <p class="muted small" style="margin-top:0">Gera uma planilha com todas as empresas (planejadas + adicionadas), dados de contato, observações e status. ${nNotes} fichas com anotações neste aparelho.</p>
       <button class="btn block" onclick="exportZip()">Exportar Excel + fotos (.zip)</button>
@@ -660,7 +855,7 @@ window.save = save; window.toast = toast; window.S = S;
 window.wipe = async () => {
   if (!confirm('Apagar TODAS as anotações e fotos deste celular? Exporte o ZIP antes.')) return;
   if (prompt('Digite APAGAR para confirmar') !== 'APAGAR') return;
-  [NOTES_KEY, ADDED_KEY, HERE_KEY, 'cc_ui'].forEach((k) => localStorage.removeItem(k));
+  [NOTES_KEY, ADDED_KEY, HERE_KEY, 'cc_ui', DIST_ADDED_KEY, DIST_CFG_KEY].forEach((k) => localStorage.removeItem(k));
   const db = await idb(); db.transaction('photos', 'readwrite').objectStore('photos').clear();
   location.reload();
 };
@@ -737,6 +932,7 @@ function buildWorkbook(photos, folders) {
       'E-mail': n.email || '', 'WhatsApp': n.whatsapp || '', 'WeChat': n.wechat || '', 'Observações / pontos tratados': n.obs || '',
       'Amostras / documentos': n.samples || '', 'Próximos passos': n.next || '', 'Interesse (1-5)': n.score || '', 'Fotos': pc[eid] || '',
       ...(folders ? { 'Pasta das fotos (no ZIP)': folders[eid] || '' } : {}),
+      'Distribuição': isDist(eid) ? 'Sim' : '',
       'Anotado por': n.by || '', 'Última edição': n.updatedAt ? new Date(n.updatedAt).toLocaleString('pt-BR') : ''
     };
   }).filter(Boolean);
@@ -747,8 +943,46 @@ function buildWorkbook(photos, folders) {
   XLSX.utils.book_append_sheet(wb, ws, 'Visitas CHINACOAT');
   return XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
 }
+// Separate workbook for the distribution study: one row per manufacturer × raw material.
+window.exportDist = async () => {
+  if (!window.XLSX) return toast('Biblioteca do Excel ainda carregando…');
+  const c = cfg(), M = S.dist.materials, mats = [], comps = [];
+  for (const eid of distEids()) {
+    const e = entity(eid); if (!e) continue;
+    const n = noteOf(eid), base = distBase.get(eid);
+    for (const cod of distMats(eid)) {
+      const m = M[cod]; if (!m) continue;
+      const q = n.dist?.[cod] || {}, r = calcInfo(m, q), r2 = (v, d = 2) => v == null ? '' : +v.toFixed(d);
+      mats.push({
+        'Empresa': e.title, 'Stand': e.stand, 'Dia': dayLabel(distDay(eid)), 'Grupo': base?.group || 'Incluída no app',
+        'Matéria-prima (nosso nome)': m.nome, 'Código': +m.cod || m.cod, 'Família': m.familia, 'Fornecedor atual': m.forn, 'Unidade': m.un,
+        'Preço médio pago (R$/un)': m.p3 ?? '', 'Base do preço': m.p3b, 'Volume 12 meses': m.kg12, 'Gasto 12 meses (R$)': m.val12,
+        'Contratipo / observação': q.obs || '', 'Preço cotado (US$/un)': num(q.fob) ?? '', 'Incoterm': incOf(q), 'MOQ': num(q.moq) ?? '',
+        'China → porto (US$/un)': incOf(q) === 'EXW' ? num(q.origem) ?? c.origem : 0, 'Frete marítimo (US$/un)': num(q.frete) ?? c.frete, 'Imp. importação (%)': num(q.ii) ?? c.ii,
+        'Custo nacionalizado (R$/un)': r2(r?.L), 'Diferença vs. hoje (%)': r2(r?.diff, 1), 'Economia anual (R$)': r2(r?.save, 0), 'MOQ em meses de consumo': r2(r?.moqMonths, 1)
+      });
+    }
+    comps.push({
+      'Empresa': e.title, 'Razão social': e.name, 'Nome chinês': e.abbr, 'País': e.country, 'Stand': e.stand, 'Dia': dayLabel(distDay(eid)),
+      'Grupo': base?.group || 'Incluída no app', ...Object.fromEntries(SUBJECTS.map((s) => [s, base?.subj[s] || ''])),
+      'Status da visita': (STATUSES.find((x) => x[0] === (n.status || '')) || STATUSES[0])[1], 'Atendido por': n.contact || '', 'Cargo': n.role || '',
+      'E-mail': n.email || '', 'WhatsApp': n.whatsapp || '', 'WeChat': n.wechat || '', 'Exclusividade / volume mínimo': n.distExcl || '',
+      'Pagamento / Incoterm / lead time': n.distTerms || '', 'Observações distribuição': n.distObs || '', 'Interesse (1-5)': n.score || '',
+      'Matérias-primas cotadas': distMats(eid).filter((x) => num(n.dist?.[x]?.fob) != null).length + ' de ' + distMats(eid).length
+    });
+  }
+  const sheet = (rows, wide) => { const ws = XLSX.utils.json_to_sheet(rows); if (rows.length) { ws['!cols'] = Object.keys(rows[0]).map((k) => ({ wch: wide.test(k) ? 34 : 14 })); ws['!autofilter'] = { ref: ws['!ref'] }; } return ws; };
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, sheet(mats, /Matéria|Contratipo|Fornecedor|Empresa/), 'Matérias-primas');
+  XLSX.utils.book_append_sheet(wb, sheet(comps, /Razão|Exclusiv|Pagamento|Observ/), 'Empresas');
+  XLSX.utils.book_append_sheet(wb, sheet([...CFG_FIELDS.map(([k, l]) => ({ 'Premissa': l, 'Valor': c[k] })),
+    { 'Premissa': 'Fórmula', 'Valor': '(preço EXW + China→porto + frete marítimo) + seguro, × câmbio × (1 + IOF) = CIF; + II sobre CIF; + AFRMM sobre frete; + despesas sobre CIF; + impostos não recuperáveis; + frete interno' },
+    { 'Premissa': 'Base de preços', 'Valor': S.dist.basis }], /Premissa|Valor/), 'Premissas');
+  const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await shareFile(new Blob([out], { type: XLSX_TYPE }), `CHINACOAT_distribuicao_${fileSafe(S.user)}_${stamp()}.xlsx`, XLSX_TYPE);
+};
 window.exportSync = async () => {
-  const data = { app: 'chinacoat', v: 1, from: S.user, at: Date.now(), notes: S.notes, added: S.added };
+  const data = { app: 'chinacoat', v: 1, from: S.user, at: Date.now(), notes: S.notes, added: S.added, distAdded: S.distAdded };
   await shareFile(new Blob([JSON.stringify(data)], { type: 'application/json' }), `CHINACOAT_sync_${S.user}_${stamp()}.json`, 'application/json');
 };
 const STATUS_RANK = { '': 0, nao: 1, retornar: 2, visitado: 3 };
@@ -767,14 +1001,18 @@ window.importSync = async (input) => {
     const l = S.notes[eid];
     if (!l) { S.notes[eid] = r; changed++; continue; }
     const m = { ...l };
-    for (const k of ['contact', 'role', 'email', 'whatsapp', 'wechat', 'obs', 'samples', 'next', 'objective']) m[k] = mergeText(l[k], r[k], r.by || d.from);
+    for (const k of ['contact', 'role', 'email', 'whatsapp', 'wechat', 'obs', 'samples', 'next', 'objective', 'distExcl', 'distTerms', 'distObs']) m[k] = mergeText(l[k], r[k], r.by || d.from);
+    if (r.dist) { m.dist = { ...(l.dist || {}) }; for (const [c, v] of Object.entries(r.dist)) if (!m.dist[c] || (v.at || 0) > (m.dist[c].at || 0)) m.dist[c] = v; }
+    if (r.distMats) m.distMats = [...new Set([...(l.distMats || r.distMats), ...r.distMats])];
+    if (!l.distDay && r.distDay) m.distDay = r.distDay;
     if ((STATUS_RANK[r.status || ''] || 0) > (STATUS_RANK[l.status || ''] || 0)) { m.status = r.status; m.visitedAt = r.visitedAt; }
     m.score = Math.max(l.score || 0, r.score || 0) || '';
     if (!l.priority && r.priority) m.priority = r.priority;
     if (JSON.stringify(m) !== JSON.stringify(l)) { m.updatedAt = Math.max(l.updatedAt || 0, r.updatedAt || 0); m.by = l.by === r.by ? l.by : `${l.by || ''} + ${r.by || ''}`; S.notes[eid] = m; changed++; }
   }
   (d.added || []).forEach((x) => { if (!S.added.includes(x)) { S.added.push(x); changed++; } });
-  save(NOTES_KEY, S.notes); save(ADDED_KEY, S.added);
+  (d.distAdded || []).forEach((x) => { if (!S.distAdded.includes(x)) { S.distAdded.push(x); changed++; } });
+  save(NOTES_KEY, S.notes); save(ADDED_KEY, S.added); save(DIST_ADDED_KEY, S.distAdded);
   toast(`Importado de ${d.from || '?'}: ${changed} alterações`); input.value = ''; render();
 };
 
@@ -806,13 +1044,15 @@ async function boot() {
   hallShape.clear();
   for (const r of S.catalog) { const p = parseStand(r[6]); if (!p) continue; const h = hallShape.get(p.hall) || { aisles: [], max: 0 }; if (!h.aisles.includes(p.aisle)) h.aisles.push(p.aisle); h.max = Math.max(h.max, p.num); hallShape.set(p.hall, h); }
   hallShape.forEach((h) => h.aisles.sort());
-  plannedFor.clear(); S.plan.visits.forEach((v) => v.catId && plannedFor.set(v.catId, v.id));
+  plannedFor.clear(); S.plan.visits.forEach((v) => v.catId && plannedFor.set(String(v.catId), v.id));
+  rebuildDist();
   render();
   navigator.storage?.persist?.();
 }
 (function start() {
   S.user = load(USER_KEY, ''); S.notes = load(NOTES_KEY, {}); S.added = load(ADDED_KEY, []); S.here = load(HERE_KEY, null);
   S.plan = load(PASS_KEY, null);
+  S.dist = load(DIST_KEY, null); S.distAdded = load(DIST_ADDED_KEY, []); S.distCfg = load(DIST_CFG_KEY, {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
   if (S.plan && S.user) boot(); else renderGate();
 })();
